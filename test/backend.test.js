@@ -115,3 +115,34 @@ test('errore imprevisto di Google: il dettaglio arriva alla pagina', () => {
   const { post } = carica({ proprieta: BASE, guastoFoglio: 'Exception: accesso negato' });
   assert.deepEqual(post({ codice: 'segreto', azione: 'elencoControlli' }), { ok: false, errore: 'bad request', dettaglio: 'Exception: accesso negato' });
 });
+
+test('testi che sembrano formule: salvati come testo e riletti uguali', () => {
+  const { post, fogli } = carica({ proprieta: BASE });
+  post({ codice: 'segreto', azione: 'salvaControllo', dati: controllo('f1', { partita: '=HYPERLINK("x")', fileExcel: '+cmd.xlsx', venue: '@Stadio', fileAir: '-a.zip', celle: -1 }) });
+  const riga = fogli.Checks[1];
+  assert.deepEqual([riga[3], riga[6], riga[7], riga[8], riga[9]], ["'=HYPERLINK(\"x\")", "'@Stadio", "'+cmd.xlsx", "'-a.zip", -1]);
+  const letta = post({ codice: 'segreto', azione: 'elencoControlli' }).righe[0];
+  assert.deepEqual([letta.partita, letta.venue, letta.fileExcel, letta.fileAir, letta.celle], ['=HYPERLINK("x")', '@Stadio', '+cmd.xlsx', '-a.zip', -1]);
+  post({ codice: 'segreto', azione: 'salvaDestinatari', dati: { password: 'admin-prova', indirizzi: ['=x@prova.it', 'a@prova.it'] } });
+  assert.deepEqual(fogli.Recipients.map((r) => r[0]), ["'=x@prova.it", 'a@prova.it']);
+  assert.deepEqual(post({ codice: 'segreto', azione: 'destinatari' }).indirizzi, ['=x@prova.it', 'a@prova.it']);
+});
+
+test('password admin: dopo 5 tentativi sbagliati in 15 minuti è bloccata anche quella giusta', () => {
+  const t0 = new Date('2026-10-16T10:00:00Z');
+  const { post, prop } = carica({ proprieta: BASE, adesso: t0 });
+  const prova = (password, azione = 'salvaDestinatari') => post({ codice: 'segreto', azione, dati: { password, indirizzi: ['a@prova.it'] } });
+  for (let i = 0; i < 5; i++) assert.equal(prova('sbagliata', 'mailDiProva').errore, 'wrong admin password');
+  assert.equal(prova('admin-prova').errore, 'too many attempts');
+  const dopo = carica({ proprieta: Object.fromEntries(prop), adesso: new Date(t0.getTime() + 16 * 60000) });
+  assert.equal(dopo.post({ codice: 'segreto', azione: 'salvaDestinatari', dati: { password: 'admin-prova', indirizzi: ['a@prova.it'] } }).ok, true);
+});
+
+test('password admin: un accesso giusto azzera i tentativi sbagliati', () => {
+  const { post } = carica({ proprieta: BASE });
+  const prova = (password) => post({ codice: 'segreto', azione: 'salvaDestinatari', dati: { password, indirizzi: ['a@prova.it'] } });
+  for (let i = 0; i < 4; i++) prova('sbagliata');
+  assert.equal(prova('admin-prova').ok, true);
+  for (let i = 0; i < 4; i++) assert.equal(prova('sbagliata').errore, 'wrong admin password');
+  assert.equal(prova('admin-prova').ok, true);
+});

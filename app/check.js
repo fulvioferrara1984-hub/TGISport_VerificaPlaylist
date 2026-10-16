@@ -225,8 +225,14 @@
     }
   }
 
+  const PARTITE_DIVERSE = 'Excel and AIR package seem to be different matches';
+
   async function salvaStorico() {
     const questo = ultimo;
+    if (!PC.report.coppiaGiusta(questo.risultatoOriginale)) {
+      messaggioServizio('check-storico', `Not saved to Statistics: ${PARTITE_DIVERSE}.`, 'male');
+      return;
+    }
     const r = await PC.servizio.chiama(PC.app.regole.servizio, 'salvaControllo', PC.report.rigaControllo(questo));
     if (questo !== ultimo) return;
     if (r.ok) messaggioServizio('check-storico', '');
@@ -238,6 +244,10 @@
     const questo = ultimo;
     const coppie = PC.report.coppieConfermate(questo);
     if (!coppie.length || questo.mailInviata || questo.mailInCorso) return;
+    if (!PC.report.coppiaGiusta(questo.risultatoOriginale)) {
+      messaggioServizio('check-invio', `No email sent: ${PARTITE_DIVERSE}.`, 'male');
+      return;
+    }
     questo.mailInCorso = true;
     messaggioServizio('check-invio', 'Sending email…');
     const r = await PC.servizio.chiama(PC.app.regole.servizio, 'inviaRefusi', { partita: questo.risultatoOriginale.riepilogo.partita, coppie });

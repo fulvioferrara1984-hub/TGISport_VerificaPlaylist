@@ -16,12 +16,14 @@ L'interfaccia è in inglese britannico; codice, commenti e questo README sono in
    - **Name variants**: stesso brand scritto in modo diverso, contato come corretto ed elencato per controllo.
    - **Download report**: Excel con *Summary* e *Findings* (una riga per risultato).
 3. Scheda **Statistics**: storico dei controlli (solo numeri), filtri per periodo, squadra e partita, *First check per match only*, export in Excel.
-4. Scheda **Settings**: destinatari della mail dei refusi; per modificarli serve la **password admin**.
+   - Se Excel e zip sembrano di due partite diverse (squadre del titolo Excel diverse da quelle dell'evento AIR), il controllo non va nello storico e la mail dei refusi non parte.
+4. Scheda **Settings**: destinatari della mail dei refusi; per modificarli serve la **password admin** (dopo 5 tentativi sbagliati in 15 minuti bisogna aspettare).
 
 ## Privacy
 
 - I due file si leggono **solo nel browser**: non vengono mai caricati su un server.
 - Allo script Google arrivano solo i **numeri** del controllo (celle, errori, refusi…) e, per i refusi/alias confermati, partita, feed, segmento, ID, colonna e i due nomi.
+- La pagina ha una Content-Security-Policy: carica solo i propri file e si collega solo allo script Google.
 - Le regole delicate (alias ufficiali, zone a regola fissa, indirizzo e codice dello script) sono **cifrate** con la password del team (AES-256-GCM, chiave PBKDF2-SHA256 con 600.000 iterazioni) in `regole/regole.js`.
 
 ## Cosa si controlla
@@ -29,7 +31,9 @@ L'interfaccia è in inglese britannico; codice, commenti e questo README sono in
 - **Virtual**: per ogni feed, slot e fila, il brand dell'Excel contro gli artwork dello zip. La fila di un artwork si ricava dal suffisso (`_1`/`_J` prima fila, `_2` seconda) del nome advertiser, poi dell'ad, poi del file.
 - **Durate** di ogni slot (colonna C) e slot contigui.
 - **Asset statici** in ogni slot dei tre segmenti: centro campo (solo nel secondo slot del pre-match), CLUB MAT, zone a regola fissa (sponsor diverso per Domestico, Far East e altri feed), ADDITIONAL (anche su RSX/RDX), LOWER CORNER.
-- **Pacchetto**: file media e sequenze presenti, feed presenti per le regioni con contenuto.
+- **Pacchetto**: file media e sequenze presenti, feed presenti per le regioni con contenuto. Un segmento con un nome che non si riconosce non viene controllato (avviso).
+- **Excel**: il foglio highlights è quello che si chiama HL/HIGHLIGHT, altrimenti il primo rimasto con la colonna ID; una riga con un ID non numerico resta al suo posto, con un avviso.
+- **Nomi**: un nome vale come variante solo a confini di parola (parole intere, parole che insieme ne compongono una, o abbreviazioni di almeno 4 lettere e il 60% della parola).
 - **Minuti di recupero**: dopo l'ultima riga piena dell'Excel lo zip può ripetere lo stesso brand fino all'ultimo slot (*Recovery*, avviso).
 
 Le righe Excel si abbinano agli slot **per posizione** (lo slot 0 delle partite è il lead-in), non per numero di ID.

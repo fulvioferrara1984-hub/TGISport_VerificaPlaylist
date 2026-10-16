@@ -102,10 +102,14 @@
     const confermati = daRisposta('confirm');
     const respinti = daRisposta('reject');
     const errori = conta(dopo, ['Error']);
-    const aperti = refusiTrovati - confermati - respinti;
+    // celle corrette: quelle controllate meno quelle con almeno un problema rimasto (errore, conferma aperta, recupero)
     const celle = ultimo.risultatoOriginale.celle;
-    return { celle, corrette: Math.max(0, celle - errori - aperti - conta(dopo, ['Recovery'])), errori, refusiTrovati, confermati, respinti, avvisi: conta(dopo, ['Warning', 'Recovery']) };
+    const sbagliate = new Set(dopo.filter((e) => e.cella && ['Error', 'Possible typo', 'Possible alias', 'Recovery'].includes(e.tipo)).map((e) => e.cella)).size;
+    return { celle, corrette: Math.max(0, celle - sbagliate), errori, refusiTrovati, confermati, respinti, avvisi: conta(dopo, ['Warning', 'Recovery']) };
   }
+
+  // Excel e AIR package della stessa partita: altrimenti il controllo non va nello storico e la mail non parte.
+  const coppiaGiusta = (risultato) => !risultato.riepilogo.partiteDiverse;
 
   // Riga del foglio Checks dello script Google: solo numeri e nomi, mai i file.
   function rigaControllo(ultimo) {
@@ -141,7 +145,7 @@
   }
 
   return {
-    NOME: 'report', ORDINE, raggruppa, idCompatti, chiaveCoppia, coppieDaConfermare, applicaRisposte, esito, esportaExcel,
+    NOME: 'report', ORDINE, coppiaGiusta, raggruppa, idCompatti, chiaveCoppia, coppieDaConfermare, applicaRisposte, esito, esportaExcel,
     conteggiControllo, rigaControllo, coppieConfermate,
   };
 });

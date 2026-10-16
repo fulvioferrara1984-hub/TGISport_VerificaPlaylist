@@ -53,10 +53,16 @@
     return { valore, righe: area.e.r + 1, colonne: area.e.c + 1 };
   }
 
-  function tabella(nome, ws, XLSX) {
+  // Riga (0-based) dell'intestazione "ID" nelle prime 14 righe della colonna A; -1 se non c'è.
+  function rigaID(valore) {
+    for (let r = 0; r < 14; r++) if (k(valore(r, 0)) === 'ID') return r;
+    return -1;
+  }
+
+  // avvisi: elenco in cui annotare le righe con un ID non numerico ({ foglio, riga, id }).
+  function tabella(nome, ws, XLSX, avvisi = []) {
     const { valore, righe: nRighe, colonne: nColonne } = lettore(ws, XLSX);
-    let testa = -1;
-    for (let r = 0; r < 14; r++) if (k(valore(r, 0)) === 'ID') { testa = r; break; }
+    const testa = rigaID(valore);
     if (testa < 0) throw new Error(`The sheet "${nome}" has no ID column header.`);
     const colonne = new Map();
     let ultima = null;
@@ -68,11 +74,21 @@
     }
     const righe = [];
     for (let r = testa + 2; r < nRighe; r++) {
-      const id = valore(r, 0);
-      if (typeof id !== 'number') continue;
+      const grezzo = valore(r, 0);
+      if (grezzo === null) continue;
+      const testo = String(grezzo).trim();
       const valori = new Map();
       colonne.forEach((c, chiave) => valori.set(chiave, vuoto(valore(r, c))));
-      righe.push({ id: Math.trunc(id), riga: r + 1, ...durata(valore(r, 2)), valori });
+      let id;
+      if (typeof grezzo === 'number' || /^\d+$/.test(testo)) id = Math.trunc(Number(grezzo));
+      else {
+        // testo nella colonna ID: è una riga della playlist (resta al suo posto, con un avviso) se ha una durata o dei valori;
+        // altrimenti è una nota e si salta
+        if (valore(r, 2) === null && ![...valori.values()].some(Boolean)) continue;
+        id = testo;
+        avvisi.push({ foglio: nome, riga: r + 1, id });
+      }
+      righe.push({ id, riga: r + 1, ...durata(valore(r, 2)), valori });
     }
     const soloPrimaFila = ![...colonne.keys()].some((c) => c.endsWith('|2'));
     return { foglio: nome, colonne, soloPrimaFila, righe };
@@ -118,11 +134,16 @@
     const nomeStatici = wb.SheetNames.find((n) => k(n).includes('STATIC'));
     if (!nomeStatici) throw new Error('This Excel file has no STATIC ASSETS sheet.');
     const usati = new Set(Object.values(partite).map((p) => p.nome).concat(nomeStatici));
-    const nomeHL = wb.SheetNames.find((n) => !usati.has(n));
+    // highlights: il foglio che si chiama HL… o …HIGHLIGHT…, altrimenti il primo rimasto con la colonna ID (le note si saltano)
+    const rimasti = wb.SheetNames.filter((n) => !usati.has(n));
+    const nomeHL = rimasti.find((n) => k(n).startsWith('HL') || k(n).includes('HIGHLIGHT'))
+      || rimasti.find((n) => rigaID(lettore(wb.Sheets[n], XLSX).valore) >= 0);
     if (!nomeHL) throw new Error('This Excel file has no highlights sheet.');
     const primo = Object.values(partite)[0].nome;
-    const out = { titolo: '', partite: {}, hl: tabella(nomeHL, wb.Sheets[nomeHL], XLSX), statici: statici(wb.Sheets[nomeStatici], XLSX) };
-    Object.entries(partite).forEach(([t, p]) => { out.partite[t] = tabella(p.nome, wb.Sheets[p.nome], XLSX); });
+    const avvisi = [];
+    const out = { titolo: '', partite: {}, hl: null, statici: statici(wb.Sheets[nomeStatici], XLSX), avvisi };
+    Object.entries(partite).forEach(([t, p]) => { out.partite[t] = tabella(p.nome, wb.Sheets[p.nome], XLSX, avvisi); });
+    out.hl = tabella(nomeHL, wb.Sheets[nomeHL], XLSX, avvisi);
     const titolo = lettore(wb.Sheets[primo], XLSX).valore(2, 0);
     out.titolo = titolo === null ? '' : String(titolo);
     return out;

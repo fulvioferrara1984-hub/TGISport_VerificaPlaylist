@@ -61,27 +61,76 @@
     return String(file || '').split('/').pop().replace(/\.[^.]*$/, '').replace(/^\d+_/, '');
   }
 
+  // Testo compattato e confini tra le parole: ['ALFA', 'BETA'] → { testo: 'ALFABETA', confini: Set {0, 4, 8} }.
+  // Anche il passaggio tra cifre e lettere è un confine (ZETA140DEST → ZETA | 140 | DEST).
+  function parole(lista) {
+    const confini = new Set([0]);
+    let testo = '';
+    lista.map(k).filter(Boolean).forEach((p) => {
+      for (let i = 1; i < p.length; i++) if (/\d/.test(p[i]) !== /\d/.test(p[i - 1])) confini.add(testo.length + i);
+      testo += p;
+      confini.add(testo.length);
+    });
+    return { testo, confini };
+  }
+  const paroleTesto = (t) => parole(String(t).toUpperCase().split(/[^A-Z0-9]+/));
+
+  // a sta dentro b.testo e inizia e finisce a un confine di parola (TAX non sta dentro MELTAX).
+  function allineato(b, a) {
+    if (!a) return false;
+    for (let i = b.testo.indexOf(a); i >= 0; i = b.testo.indexOf(a, i + 1)) if (b.confini.has(i) && b.confini.has(i + a.length)) return true;
+    return false;
+  }
+
+  // Una parola toccata solo in parte va bene se è coperto il suo inizio, per almeno 4 lettere e il 60% della parola
+  // (abbreviazioni come ALFABET per ALFABETICO, o una lettera accentata persa in fondo).
+  const abbreviata = (parola) => {
+    const n = parola.indexOf(false);
+    return n >= 4 && n >= 0.6 * parola.length && parola.slice(n).every((x) => !x);
+  };
+
+  // Ogni pezzo compare in b.testo dentro parole "a posto": coperte per intero dai pezzi, o abbreviate
+  // (TAX non copre MELTAX; ALFA e BETA insieme coprono ALFABETA; la J di JALFA non conta se J è anche una parola).
+  function coperte(b, pezzi) {
+    const posizioni = pezzi.map((p) => {
+      const lista = [];
+      for (let i = p ? b.testo.indexOf(p) : -1; i >= 0; i = b.testo.indexOf(p, i + 1)) lista.push(i);
+      return lista;
+    });
+    if (posizioni.some((lista) => !lista.length)) return false;
+    const coperto = new Array(b.testo.length).fill(false);
+    pezzi.forEach((p, n) => posizioni[n].forEach((i) => coperto.fill(true, i, i + p.length)));
+    const aPosto = new Array(b.testo.length).fill(false);
+    const confini = [...b.confini].sort((x, y) => x - y);
+    for (let w = 0; w + 1 < confini.length; w++) {
+      const parola = coperto.slice(confini[w], confini[w + 1]);
+      if (parola.every(Boolean) || abbreviata(parola)) aPosto.fill(true, confini[w], confini[w + 1]);
+    }
+    return pezzi.every((p, n) => posizioni[n].some((i) => aPosto.slice(i, i + p.length).every(Boolean)));
+  }
+
   // excel: testo della cella (o null); art: { ad, advertiser, file } (o null).
   // ctx: { alias: { NOMEEXCEL: [CHIAVE AIR, …] }, casa: Set dei token della squadra di casa }.
   function confronta(excel, art, ctx) {
     const e = excel ? k(senzaCodici(excel)) : '';
     if (!art) return e ? 'errore' : 'ok';
     if (!e) return 'errore';
+    const ex = paroleTesto(senzaCodici(excel)); // ex.testo è e, con i confini tra le parole
     const alias = ctx.alias || {};
-    const { chiave, parole } = chiaveBrand(art.ad);
-    if (e === chiave || Object.keys(alias).some((a) => e.includes(a) && alias[a].includes(chiave))) return 'ok';
-    const fk = k(nomeFile(art.file));
-    if (parole.every((p) => e.includes(p)) || chiave.includes(e) || (e.length >= 4 && fk.includes(e))) return 'variante';
+    const aliasExcel = Object.keys(alias).filter((a) => allineato(ex, a));
+    const { chiave, parole: paroleAir } = chiaveBrand(art.ad);
+    if (e === chiave || aliasExcel.some((a) => alias[a].includes(chiave))) return 'ok';
+    if (coperte(ex, paroleAir) || coperte(parole(paroleAir), [e]) || (e.length >= 4 && coperte(paroleTesto(nomeFile(art.file)), [e]))) return 'variante';
     // nome advertiser e nome file senza il prefisso della squadra di casa (es. CASA_ALFA_LSX → ALFA)
     for (const altro of [art.advertiser, nomeFile(art.file)]) {
       if (!altro) continue;
       const p2 = chiaveBrand(altro).parole.filter((p) => !(ctx.casa && ctx.casa.has(p)));
-      if (p2.length && p2.every((p) => e.includes(p))) return 'variante';
+      if (p2.length && coperte(ex, p2)) return 'variante';
     }
     const inversi = Object.keys(alias).filter((a) => alias[a].includes(chiave));
     if ([chiave].concat(alias[e] || [], inversi).some((c) => vicini(e, c))) return 'refuso';
     // refuso nel nome AIR: il brand trovato è quasi uguale a un alias ufficiale del nome Excel (es. ALAF_PT ~ ALFA_PT)
-    if (Object.keys(alias).some((a) => e.includes(a) && alias[a].some((x) => vicini(x, chiave)))) return 'refuso';
+    if (aliasExcel.some((a) => alias[a].some((x) => vicini(x, chiave)))) return 'refuso';
     return 'errore';
   }
 

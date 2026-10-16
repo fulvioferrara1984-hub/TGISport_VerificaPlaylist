@@ -69,3 +69,30 @@ test('foglio PLAYLIST mancante: errore chiaro', () => {
 test('file non Excel: errore chiaro', () => {
   assert.throws(() => leggiExcel(new TextEncoder().encode('zip finto').buffer, XLSX), /could not be read as an Excel workbook/);
 });
+
+// Aggiunge un foglio subito prima di "prima" (contenuto: aoa, oppure la copia di un foglio esistente).
+function conFoglio(dati, nome, prima, { aoa, copia } = {}) {
+  const wb = XLSX.read(dati, { type: 'array' });
+  wb.Sheets[nome] = copia ? wb.Sheets[copia] : XLSX.utils.aoa_to_sheet(aoa);
+  wb.SheetNames.splice(wb.SheetNames.indexOf(prima), 0, nome);
+  return XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+}
+
+test('foglio highlights: per nome, altrimenti il primo rimasto con la colonna ID (i fogli di note si saltano)', () => {
+  const base = { intestazioni: ['EUROPE\nVIRTUAL'], file: 1, righe: [[1, 15, 'ALFA']], righeHL: [[1, 15, 'GAMMA']] };
+  const note = { aoa: [['Note'], ['da rivedere']] };
+  assert.equal(leggiExcel(conFoglio(cartella({ ...base, nomeHL: 'Foglio1' }), 'NOTE', 'Foglio1', note), XLSX).hl.foglio, 'Foglio1');
+  assert.equal(leggiExcel(conFoglio(cartella({ ...base, nomeHL: 'HL PLAYLIST' }), 'NOTE', 'STATIC ASSETS', note), XLSX).hl.foglio, 'HL PLAYLIST');
+  // una copia della playlist prima del foglio HL: vince il nome
+  assert.equal(leggiExcel(conFoglio(cartella({ ...base, nomeHL: 'HL PLAYLIST' }), 'PLAYLIST (2)', 'HL PLAYLIST', { copia: 'PLAYLIST' }), XLSX).hl.foglio, 'HL PLAYLIST');
+});
+
+test('ID non numerici: la riga resta al suo posto con un avviso; le righe di note si saltano', () => {
+  const wb = XLSX.read(cartella({ intestazioni: ['EUROPE\nVIRTUAL'], file: 1, righe: [[1, 15, 'ALFA'], [' 2 ', 15, 'BETA'], ['3a', 15, 'GAMMA'], [4, 15, 'DELTA']] }), { type: 'array' });
+  XLSX.utils.sheet_add_aoa(wb.Sheets.PLAYLIST, [['Nota: da rivedere']], { origin: 'A11' });
+  const x = leggiExcel(XLSX.write(wb, { type: 'array', bookType: 'xlsx' }), XLSX);
+  const righe = x.partite.MATCH.righe;
+  assert.deepEqual(righe.map((r) => r.id), [1, 2, '3a', 4]);
+  assert.equal(righe[2].valori.get('EU|1'), 'GAMMA');
+  assert.deepEqual(x.avvisi, [{ foglio: 'PLAYLIST', riga: 8, id: '3a' }]);
+});

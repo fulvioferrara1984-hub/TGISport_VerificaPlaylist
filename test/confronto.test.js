@@ -150,3 +150,39 @@ test('centro campo: errori veri, mai alias', () => {
   const cc2 = verifica(m2.excel, m2.air, REGOLE).esiti.filter((e) => e.zona === 'CC');
   assert.deepEqual(cc2.map((e) => [e.tipo, e.segmento, e.id, e.atteso, e.trovato]), [['Error', 'Pre Match - Post Match', 2, 'GAMMA', 'Circle_Empty']]);
 });
+
+test('segmenti con nome sconosciuto: non si indovinano', () => {
+  assert.equal(tipoSegmento('2nd Half'), 'MATCH2');
+  assert.equal(tipoSegmento('Second Half'), 'MATCH2');
+  assert.equal(tipoSegmento('First Half'), 'MATCH1');
+  assert.equal(tipoSegmento('Extra Time'), null);
+  const { excel, air } = modello({ righe: ['ALFA'], slot: [A('ALFA')] });
+  air.stream[0].segmenti.push(segmento('Extra Time', [{ mappe: { 0: A('OMEGA'), 1: CIRCLE } }]));
+  const r = verifica(excel, air, REGOLE);
+  assert.deepEqual(r.esiti.filter((e) => e.segmento === 'Extra Time'),
+    [{ tipo: 'Warning', feed: 'Europa', segmento: 'Extra Time', id: '-', colonna: '-', zona: '-', atteso: 'known segment', trovato: 'not checked' }]);
+});
+
+test('cartella advertisements vuota: un errore, non mille', () => {
+  const { excel, air } = modello({ righe: ['ALFA'], slot: [A('ALFA')], media: new Set() });
+  const r = verifica(excel, air, REGOLE);
+  assert.deepEqual(r.esiti.filter((e) => String(e.atteso).startsWith('media')),
+    [{ tipo: 'Error', feed: '-', segmento: '-', id: '-', colonna: '-', zona: '-', atteso: 'media files in advertisements/', trovato: 'none' }]);
+});
+
+test('righe Excel con ID non numerico: avviso con foglio e cella', () => {
+  const { excel, air } = modello({ righe: ['ALFA'], slot: [A('ALFA')] });
+  excel.avvisi = [{ foglio: 'PLAYLIST', riga: 8, id: '3a' }];
+  const r = verifica(excel, air, REGOLE);
+  assert.deepEqual(r.esiti.filter((e) => e.atteso === 'numeric ID'),
+    [{ tipo: 'Warning', feed: '-', segmento: '-', id: '3a', colonna: 'PLAYLIST · A8', zona: '-', atteso: 'numeric ID', trovato: '3a' }]);
+});
+
+test('i risultati di una cella portano il numero della cella; quelli del pacchetto no', () => {
+  const { excel, air } = modello({ righe: ['ALFA', 'BETA'], slot: [A('OMEGA')], media: new Set(['1503_blank_generic.png', '1356_circle_empty.png']) });
+  const r = verifica(excel, air, REGOLE);
+  const sbagliato = r.esiti.find((e) => e.atteso === 'ALFA');
+  assert.ok(Number.isInteger(sbagliato.cella) && sbagliato.cella >= 1 && sbagliato.cella <= r.celle);
+  assert.equal(r.esiti.find((e) => e.atteso === 'AIR slot').cella, undefined); // riga Excel senza slot
+  assert.equal(r.esiti.find((e) => e.atteso === 'media file').cella, undefined);
+});

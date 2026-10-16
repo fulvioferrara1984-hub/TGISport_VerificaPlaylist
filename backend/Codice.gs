@@ -9,6 +9,8 @@
  */
 
 var LIMITE_MAIL_ORA = 20;
+var LIMITE_TENTATIVI_ADMIN = 5; // password admin sbagliate…
+var FINESTRA_TENTATIVI_MS = 15 * 60 * 1000; // …in 15 minuti, poi si aspetta
 var CAMPI_CONTROLLO = ['idControllo', 'dataControllo', 'dataEvento', 'partita', 'casa', 'ospite', 'venue', 'fileExcel', 'fileAir',
   'celle', 'corrette', 'errori', 'refusiTrovati', 'confermati', 'respinti', 'avvisi'];
 var EMAIL = /^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/;
@@ -55,9 +57,9 @@ function gestisci(r) {
     case 'salvaControllo': return salvaControllo(dati);
     case 'elencoControlli': return { ok: true, righe: elencoControlli() };
     case 'destinatari': return { ok: true, indirizzi: destinatari() };
-    case 'salvaDestinatari': return adminOk(p, dati.password) ? salvaDestinatari(dati.indirizzi) : { ok: false, errore: 'wrong admin password' };
+    case 'salvaDestinatari': return verificaAdmin(p, dati.password) || salvaDestinatari(dati.indirizzi);
     case 'inviaRefusi': return inviaRefusi(p, dati);
-    case 'mailDiProva': return adminOk(p, dati.password) ? mailDiProva(p) : { ok: false, errore: 'wrong admin password' };
+    case 'mailDiProva': return verificaAdmin(p, dati.password) || mailDiProva(p);
     default: return { ok: false, errore: 'unknown action' };
   }
 }
@@ -81,7 +83,28 @@ function adminOk(p, password) {
   return Boolean(password && sale && impronta(sale, String(password)) === p.getProperty('ADMIN_HASH'));
 }
 
+// null se la password admin va bene, altrimenti la risposta d'errore. Dopo LIMITE_TENTATIVI_ADMIN tentativi sbagliati
+// nella finestra si aspetta, anche con la password giusta; un accesso giusto azzera il conto.
+function verificaAdmin(p, password) {
+  var adesso = new Date().getTime();
+  var stato = JSON.parse(p.getProperty('ADMIN_ERRORI') || '{"n":0,"da":0}');
+  if (adesso - stato.da > FINESTRA_TENTATIVI_MS) stato = { n: 0, da: adesso };
+  if (stato.n >= LIMITE_TENTATIVI_ADMIN) return { ok: false, errore: 'too many attempts' };
+  if (adminOk(p, password)) {
+    if (stato.n) p.deleteProperty('ADMIN_ERRORI');
+    return null;
+  }
+  stato.n++;
+  p.setProperty('ADMIN_ERRORI', JSON.stringify(stato));
+  return { ok: false, errore: 'wrong admin password' };
+}
+
 // ---------- fogli ----------
+// Testi che Google Sheets leggerebbe come formule (iniziano con = + - @, tab o a capo): salvati come testo con l'apostrofo.
+function comeTesto(v) {
+  return typeof v === 'string' && /^[=+\-@\t\r]/.test(v) ? "'" + v : v;
+}
+
 function foglio(nome, intestazione) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   if (!ss) throw new Error('no spreadsheet: create the script from the Google Sheet (Extensions → Apps Script)');
@@ -98,7 +121,7 @@ function salvaControllo(d) {
   var f = foglio('Checks', CAMPI_CONTROLLO);
   var riga = CAMPI_CONTROLLO.map(function (c) {
     var v = d[c] === undefined || d[c] === null ? '' : d[c];
-    return CAMPI_DATA.indexOf(c) >= 0 && v !== '' ? "'" + v : v;
+    return CAMPI_DATA.indexOf(c) >= 0 && v !== '' ? "'" + v : comeTesto(v);
   });
   var valori = f.getDataRange().getValues();
   for (var i = 1; i < valori.length; i++) {
@@ -125,7 +148,7 @@ function elencoControlli() {
 
 function destinatari() {
   return foglio('Recipients').getDataRange().getValues()
-    .map(function (r) { return String(r[0] || '').trim(); }).filter(function (x) { return x; });
+    .map(function (r) { return String(r[0] || '').trim().replace(/^'/, ''); }).filter(function (x) { return x; });
 }
 
 function salvaDestinatari(indirizzi) {
@@ -135,7 +158,7 @@ function salvaDestinatari(indirizzi) {
   if (errati.length) return { ok: false, errore: 'invalid address', errati: errati };
   var f = foglio('Recipients');
   f.clearContents();
-  if (puliti.length) f.getRange(1, 1, puliti.length, 1).setValues(puliti.map(function (x) { return [x]; }));
+  if (puliti.length) f.getRange(1, 1, puliti.length, 1).setValues(puliti.map(function (x) { return [comeTesto(x)]; }));
   return { ok: true, indirizzi: puliti };
 }
 

@@ -5,6 +5,12 @@
   const $ = (id) => document.getElementById(id);
   const app = { regole: null, chiave: null };
 
+  // Logo mancante: via l'immagine invece di mostrarla rotta (qui e non con onerror nella pagina, che la policy blocca).
+  document.querySelectorAll('.marchio-logo, .accesso-logo').forEach((img) => {
+    if (img.complete && !img.naturalWidth) img.remove();
+    else img.addEventListener('error', () => img.remove());
+  });
+
   // Messaggio temporaneo in basso (tipo: '' | 'ok' | 'errore').
   function avviso(testo, tipo = '') {
     const a = document.createElement('div');

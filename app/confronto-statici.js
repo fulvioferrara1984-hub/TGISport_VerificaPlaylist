@@ -48,17 +48,18 @@
         const ruolo = ruoloZona(zn, c.angoliStatici, c.prefissoSponsor);
         const a = perZona.get(zn);
         if (ruolo === 'CC') {
-          c.celle.n++;
+          c.cella = ++c.celle.n;
           const voce = attesi.CC;
           const atteso = tipo === 'PRE' && i === 1 ? voce.valore : null;
           if (!a || a.ad === 'Circle_Empty') {
             if (atteso) nota('Error', id, etichetta(voce), zn, String(atteso), 'Circle_Empty');
           } else {
             const es = confronta(c, atteso, a);
-            if (es !== 'ok' && es !== 'variante') nota(es === 'errore' ? 'Error' : 'Possible typo', id, etichetta(voce), zn, String(atteso || 'Circle_Empty'), a.ad);
+            if (es === 'variante') nota('Variant', id, etichetta(voce), zn, String(atteso), a.ad);
+            else if (es !== 'ok') nota(es === 'errore' ? 'Error' : 'Possible typo', id, etichetta(voce), zn, String(atteso || 'Circle_Empty'), a.ad);
           }
         } else if (['SPONSOR', 'CLUB', 'ADD', 'LC'].includes(ruolo)) {
-          c.celle.n++;
+          c.cella = ++c.celle.n;
           let atteso; let col;
           if (tipo === 'PRE' || leadIn) { atteso = null; col = '-'; }
           else if (ruolo === 'SPONSOR') { atteso = sponsorAtteso; col = `Rule · ${sponsor.etichetta}`; }
@@ -77,9 +78,10 @@
             const es = confronta(c, atteso, trovato);
             if (es === 'errore') nota('Error', id, col, zn, String(atteso || 'nothing'), trovato.ad);
             else if (es === 'refuso') nota('Possible typo', id, col, zn, String(atteso), trovato.ad);
+            else if (es === 'variante') nota('Variant', id, col, zn, String(atteso), trovato.ad);
           }
         } else if ((tipo === 'PRE' || leadIn) && ruolo.startsWith('LED')) {
-          c.celle.n++;
+          c.cella = ++c.celle.n;
           if (a && a.ad !== 'Blank_Generic') nota('Error', id, '-', zn, 'Blank', a.ad);
         }
       }

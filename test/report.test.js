@@ -66,7 +66,7 @@ test('durate sbagliate: un gruppo per feed anche con valori attesi diversi', () 
 test('conteggi del controllo per lo storico (solo numeri)', () => {
   const { conteggiControllo, rigaControllo, coppieDaConfermare } = require('../app/report.js');
   const esiti = [E('Error', 1), E('Error', 2), E('Possible typo', 3, 'GL_SX_2', 'belta', 'MELTA_GL2'), E('Possible typo', 4, 'GL_SX_2', 'belta', 'MELTA_GL2'),
-    E('Possible alias', 5, 'X', 'ZORRO', 'ZTV_GC1'), E('Warning', '-'), E('Recovery', 9), E('Variant', 6)];
+    E('Possible alias', 5, 'X', 'ZORRO', 'ZTV_GC1'), E('Warning', '-'), E('Recovery', 9), E('Variant', 6)].map((e) => (typeof e.id === 'number' ? { ...e, cella: e.id } : e));
   const ultimo = { idControllo: 'c1', dataControllo: '2026-10-15T10:00:00Z', nomiFile: { excel: 'p.xlsx', air: 'a.zip' },
     risultatoOriginale: { celle: 100, esiti, riepilogo: { partita: 'ALFA - BETA', casa: 'ALFA', ospite: 'BETA', venue: 'Stadio Prova', dataEvento: '2026-10-12' } },
     risposte: new Map([['Possible typo|BELTA|MELTA', 'confirm'], ['Possible alias|ZORRO|ZTV', 'reject']]) };
@@ -81,4 +81,27 @@ test('coppie confermate per la mail', () => {
   const esiti = [E('Possible typo', 12, 'GL_SX_2', 'belta', 'MELTA_GL2'), E('Possible typo', 58, 'GL_SX_2', 'belta', 'MELTA_GL2'), E('Possible alias', 5, 'X', 'ZORRO', 'ZTV_GC1')];
   const ultimo = { risultatoOriginale: { esiti }, coppie: coppieDaConfermare(esiti), risposte: new Map([['Possible typo|BELTA|MELTA', 'confirm'], ['Possible alias|ZORRO|ZTV', 'reject']]) };
   assert.deepEqual(coppieConfermate(ultimo), [{ tipo: 'Possible typo', feed: 'Europa', segmento: '1st - 2nd Half', id: '12, 58', colonna: 'J · EUROPE – First row', excel: 'belta', air: 'MELTA_GL2' }]);
+});
+
+test('celle corrette: le celle controllate meno quelle con almeno un problema rimasto', () => {
+  const { conteggiControllo, coppieDaConfermare } = require('../app/report.js');
+  const C = (e, cella) => ({ ...e, cella });
+  const esiti = [C(E('Error', 1), 1), C(E('Error', 1, 'GL_SX_2'), 1), // due errori sulla stessa cella
+    C(E('Possible typo', 3, 'GL_SX_2', 'belta', 'MELTA_GL2'), 2), // confermato: la cella è corretta
+    C(E('Possible alias', 5, 'X', 'ZORRO', 'ZTV_GC1'), 3), // respinto: errore
+    C(E('Recovery', 9), 4), C(E('Variant', 6), 5), C(E('Warning', 7), 6),
+    E('Error', '-')]; // errore del pacchetto, non di una cella
+  const ultimo = { idControllo: 'c2', dataControllo: '2026-10-15T10:00:00Z', nomiFile: { excel: 'p.xlsx', air: 'a.zip' },
+    risultatoOriginale: { celle: 10, esiti, riepilogo: { partita: 'ALFA - BETA' } },
+    risposte: new Map([['Possible typo|BELTA|MELTA', 'confirm'], ['Possible alias|ZORRO|ZTV', 'reject']]) };
+  ultimo.coppie = coppieDaConfermare(esiti);
+  const n = conteggiControllo(ultimo);
+  assert.equal(n.corrette, 7); // 10 − celle 1, 3 e 4
+  assert.equal(n.errori, 4);
+});
+
+test('coppie di partite diverse: fuori dallo storico e dalla mail', () => {
+  const { coppiaGiusta } = require('../app/report.js');
+  assert.equal(coppiaGiusta({ riepilogo: { partiteDiverse: false } }), true);
+  assert.equal(coppiaGiusta({ riepilogo: { partiteDiverse: true } }), false);
 });

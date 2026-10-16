@@ -92,3 +92,13 @@ test('zona CLUB con un nome inatteso: un avviso, nessun blocco; maiuscole indiff
   });
   assert.deepEqual(breve(c.esiti), [{ tipo: 'Warning', id: '-', colonna: '-', zona: 'CLUB_CX', atteso: 'known CLUB zone', trovato: 'unknown zone' }]);
 });
+
+test('varianti di nome negli statici: registrate come Variant (per l’elenco Name variants)', () => {
+  const c = prova({
+    zone: ['FULL PERIMETER', 'CLUB_LSX', 'CC'], tipo: 'PRE', attesi: { CC: st('ALFA SPORT', 'B3', 'CENTRE CIRCLE') },
+    slot: [{ mappe: { 0: BLANK, 2: CIRCLE } }, { mappe: { 0: BLANK, 2: art('ALFA_CC') } }, { mappe: { 0: BLANK, 2: CIRCLE } }],
+  });
+  assert.deepEqual(breve(c.esiti), [{ tipo: 'Variant', id: 2, colonna: 'STATIC B3 · CENTRE CIRCLE', zona: 'CC', atteso: 'ALFA SPORT', trovato: 'ALFA_CC' }]);
+  const m = prova({ zone: ['CLUB_LSX'], attesi: { MAT1: st('BETA GROUP', 'B4', 'CLUB MAT 1') }, slot: [{ mappe: {} }, { mappe: { 0: art('BETA_LSX') } }] });
+  assert.deepEqual(breve(m.esiti), [{ tipo: 'Variant', id: 1, colonna: 'STATIC B4 · CLUB MAT 1', zona: 'CLUB_LSX', atteso: 'BETA GROUP', trovato: 'BETA_LSX' }]);
+});

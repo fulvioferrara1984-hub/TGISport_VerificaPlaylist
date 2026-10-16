@@ -15,13 +15,17 @@
 
   const NOMI_SEGMENTO = { PRE: 'Pre Match - Post Match', MATCH: '1st - 2nd Half', MATCH1: '1st Half', MATCH2: '2nd Half', HL: 'Highlights' };
 
+  // null per un nome che non si riconosce: quel segmento non si controlla (avviso), invece di indovinarne il tipo.
   function tipoSegmento(nome) {
     const s = nomi.k(nome);
     if (s.includes('HIGHLIGHT')) return 'HL';
     if (s.includes('PRE')) return 'PRE';
-    if (s.includes('1ST') && s.replace('1ST', '').includes('2')) return 'MATCH';
-    if (s.includes('1ST')) return 'MATCH1';
-    return 'MATCH2';
+    const primo = s.includes('1ST') || s.includes('FIRST');
+    const secondo = s.includes('2ND') || s.includes('SECOND');
+    if ((s.includes('1ST') && s.replace('1ST', '').includes('2')) || (primo && secondo)) return 'MATCH';
+    if (primo) return 'MATCH1';
+    if (secondo) return 'MATCH2';
+    return null;
   }
 
   // Squadre di casa e ospite da un titolo ("6 - ALFA-BETA", "MATCH | ALFA-BETA", "ALFA VS BETA", "ALFA-BETA_V3"…); null se non ci sono.
@@ -79,7 +83,9 @@
     const ctxNomi = { alias: regole.alias || {}, casa: new Set(sqEv ? [sqEv[0]] : [nomi.k(String(ev.nome).split(/[-_ ]/)[0])]) };
     const angoliStatici = [...excel.statici.keys()].some((c) => c.startsWith('LC|'));
     let esiti = [];
-    const c = { zone: air.zone, angoliStatici, prefissoSponsor: regole.zoneSponsor && regole.zoneSponsor.prefisso, ctxNomi, nota: (e) => esiti.push(e), giusti: new Set(), celle: { n: 0 } };
+    const c = { zone: air.zone, angoliStatici, prefissoSponsor: regole.zoneSponsor && regole.zoneSponsor.prefisso, ctxNomi, giusti: new Set(), celle: { n: 0 }, cella: null };
+    // ogni risultato prende il numero della cella in controllo (null fuori dalle celle): serve a contare le celle corrette
+    c.nota = (e) => esiti.push(c.cella ? { ...e, cella: c.cella } : e);
     const tabelle = Object.values(excel.partite).concat([excel.hl]);
     const nomiExcel = new Set();
     tabelle.forEach((t) => t.righe.forEach((r) => r.valori.forEach((v) => { if (v) nomiExcel.add(String(v).trim()); })));
@@ -95,6 +101,13 @@
       esiti.push({ tipo: 'Error', feed: NOME_REG[r], segmento: '-', id: '-', colonna: '-', zona: '-', atteso: 'AIR feed for ' + NOME_REG[r], trovato: 'missing' });
     });
 
+    // righe dell'Excel con un ID non numerico: restano al loro posto, ma vanno sistemate
+    (excel.avvisi || []).forEach((a) => esiti.push({ tipo: 'Warning', feed: '-', segmento: '-', id: a.id, colonna: `${a.foglio} · A${a.riga}`, zona: '-', atteso: 'numeric ID', trovato: a.id }));
+    // pacchetto senza file media: un solo errore invece di uno per artwork
+    if (air.media instanceof Set && air.media.size === 0) {
+      esiti.push({ tipo: 'Error', feed: '-', segmento: '-', id: '-', colonna: '-', zona: '-', atteso: 'media files in advertisements/', trovato: 'none' });
+    }
+
     // ogni feed deve avere il pre-match, la partita (intera o i due tempi, come nell'Excel) e gli highlights
     const richiesti = ['PRE'].concat(Object.keys(excel.partite), ['HL']);
     for (const stream of air.stream) {
@@ -105,11 +118,14 @@
     }
 
     for (const stream of air.stream) {
+      c.cella = null;
       const attesi = attesiStatici(excel.statici, stream.regioni, c.nota, stream.nome);
       for (const seg of stream.segmenti) {
+        c.cella = null;
         const nota = (tipo, id, colonna, zona, atteso, trovato) => c.nota({ tipo, feed: stream.nome, segmento: seg.nome, id, colonna, zona, atteso, trovato });
         if (!seg.intervalli) { nota('Error', '-', '-', '-', 'sequence file', 'missing ' + seg.file); continue; }
         const tipo = tipoSegmento(seg.nome);
+        if (!tipo) { nota('Warning', '-', '-', '-', 'known segment', 'not checked'); continue; }
         if (tipo.startsWith('MATCH') && !excel.partite[tipo]) { nota('Error', '-', '-', '-', `Excel sheet for ${seg.nome}`, 'missing'); continue; }
         seg.intervalli.forEach((iv, i) => {
           const dopo = seg.intervalli[i + 1];

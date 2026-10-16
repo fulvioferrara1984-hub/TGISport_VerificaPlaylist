@@ -19,7 +19,8 @@
   function interfaccia() {
     const PC = radice.PC;
     const $ = (id) => document.getElementById(id);
-    const MOTIVI = { 'wrong admin password': 'Wrong admin password.', 'rate limit': 'Too many emails this hour: try again later.',
+    const MOTIVI = { 'wrong admin password': 'Wrong admin password.', 'too many attempts': 'Too many wrong admin passwords: try again in 15 minutes.',
+      'rate limit': 'Too many emails this hour: try again later.',
       'no recipients': 'There are no recipients yet.', 'not configured': 'The email service is not set up yet.', unreachable: "Couldn't reach the email service." };
 
     function messaggio(testo, classe = '') {

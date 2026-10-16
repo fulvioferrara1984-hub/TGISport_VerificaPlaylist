@@ -42,3 +42,31 @@ test('livelli di confronto', () => {
   assert.equal(confronta('ALFA', null, ctx), 'errore');
   assert.equal(confronta(null, null, ctx), 'ok');
 });
+
+test('varianti solo a confini di parola: un nome corto dentro un altro brand non basta', () => {
+  assert.equal(confronta('MELTAX', art('TAX_GL1'), ctx), 'errore'); // parola AIR dentro una parola Excel
+  assert.equal(confronta('TAX', art('MELTAX_GL1'), ctx), 'errore'); // nome Excel dentro una parola AIR
+  assert.equal(confronta('LTAX', art('ZZ_GL1', null, '../advertisements/9_meltax_1.mp4'), ctx), 'errore'); // dentro il nome del file
+  assert.equal(confronta('MELTAX', art('ZZ_LSX', 'CASA_TAX_LSX'), ctx), 'errore'); // advertiser senza il prefisso di casa
+  assert.equal(confronta('OMEGAMMA', art('GM_GL1'), ctx), 'errore'); // alias ufficiale dentro un'altra parola
+  // restano varianti: parole intere, o parole AIR che insieme compongono una parola Excel
+  assert.equal(confronta('ALFA BETA', art('ALFA_GL1'), ctx), 'variante');
+  assert.equal(confronta('ALFA', art('ALFA_BETA_GL1'), ctx), 'variante');
+  assert.equal(confronta('ALFABETA', art('ALFA_BETA_PROMO_GL1'), ctx), 'variante');
+  assert.equal(confronta('ALFABETA', art('BETA_ALFA_GL1'), ctx), 'variante');
+  assert.equal(confronta('GAMMA NEWS', art('GM_GL1'), ctx), 'ok');
+});
+
+test('abbreviazioni: l’inizio di una parola vale se è abbastanza lungo', () => {
+  assert.equal(confronta('ALFABETICO', art('ALFABET_GL1'), ctx), 'variante'); // 7 lettere su 10
+  assert.equal(confronta('ALFABET', art('ALFABETICO_GL1'), ctx), 'variante');
+  assert.equal(confronta('#ALFABETICO', art('ALFABET_USX'), ctx), 'variante');
+  assert.equal(confronta('MELTAX', art('MEL_GL1'), ctx), 'errore'); // 3 lettere: troppo poco
+  assert.equal(confronta('BETASSON', art('BETA_GL1'), ctx), 'errore'); // 4 su 8: meno del 60%
+});
+
+test('confini: una parola intera basta anche se le stesse lettere compaiono dentro un’altra; cifre e lettere si separano', () => {
+  assert.equal(confronta('JALFA J', art('J_TL'), ctx), 'variante'); // J è una parola dell'Excel, anche se c'è una J dentro JALFA
+  assert.equal(confronta('ZETA 150_J', art('ZETA-150XYZ_GL2'), ctx), 'variante'); // 150 e XYZ sono parole diverse
+  assert.equal(confronta('B_', art('BETAX_CHINA_GC1'), ctx), 'errore'); // una lettera sola non è un brand
+});

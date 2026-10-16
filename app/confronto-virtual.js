@@ -43,12 +43,14 @@
     const base = tipo === 'HL' ? 0 : 1;
     const nota = (...a) => c.nota(esito(a[0], stream.nome, segmento.nome, ...a.slice(1)));
     const led = (z) => ruoloZona(c.zone.get(z), c.angoliStatici, c.prefissoSponsor).startsWith('LED');
+    c.cella = null; // risultati fuori dalle celle (righe senza slot, avvisi): senza numero di cella
     if (righe.length && righe[0].id !== 1) nota('Warning', righe[0].id, `A${righe[0].riga} · ID`, '-', 'IDs start at 1', `starts at ${righe[0].id}`);
     const piena = (r) => regioni.some((g) => r.valori.get(`${g}|1`) || r.valori.get(`${g}|2`));
     const piene = righe.map((r, i) => (piena(r) ? i + 1 : 0)).filter(Boolean);
     const ultima = piene.length ? piene[piene.length - 1] : null;
     const nZip = iv.length - base;
     for (let pos = 1; pos <= Math.max(righe.length, nZip); pos++) {
+      c.cella = null;
       const idx = pos - 1 + base;
       const riga = pos <= righe.length ? righe[pos - 1] : null;
       const id = riga ? riga.id : `slot ${pos}`;
@@ -60,7 +62,7 @@
         continue;
       }
       const { durata, mappe } = iv[idx];
-      c.celle.n++;
+      c.cella = ++c.celle.n;
       if (riga.durataMs !== durata) nota('Error', id, `C${riga.riga} · Duration`, '-', riga.durataTesto, secondi(durata));
       const trovati = { 1: [], 2: [] };
       mappe.forEach((a, z) => {
@@ -72,6 +74,7 @@
       for (const fila of [1, 2]) {
         const cs = regioni.filter((g) => tabella.colonne.has(`${g}|${fila}`)).sort((x, y) => tabella.colonne.get(`${x}|${fila}`) - tabella.colonne.get(`${y}|${fila}`));
         if (!cs.length) continue;
+        c.cella = ++c.celle.n;
         const attesi = [...new Set(cs.map((g) => String(riga.valori.get(`${g}|${fila}`) || '').trim()))];
         if (new Set(attesi.map((x) => nomi.k(nomi.senzaCodici(x)))).size > 1) {
           nota('Error', id, `${tabella.foglio} · ${cs.map((g) => NOME_REG[g]).join('/')}`, '-', 'same value (shared feed)', attesi.sort().join(' | '));
@@ -79,7 +82,6 @@
         const r0 = cs[0];
         const etichetta = `${lettera(tabella.colonne.get(`${r0}|${fila}`))} · ${NOME_REG[r0]} – ${fila === 1 ? 'First' : 'Second'} row`;
         const e = riga.valori.get(`${r0}|${fila}`);
-        c.celle.n++;
         const arts = trovati[fila];
         if (!arts.length) {
           const altri = trovati[3 - fila].filter(([zn]) => ruoloZona(zn, c.angoliStatici, c.prefissoSponsor) === (fila === 1 ? 'LED1' : 'LED2'));
@@ -107,6 +109,7 @@
         }
       }
     }
+    c.cella = null;
     if (tipo === 'HL' && iv.length !== righe.length) nota('Warning', '-', '-', '-', `${righe.length} slots (Excel)`, `${iv.length} slots (AIR)`);
   }
 
