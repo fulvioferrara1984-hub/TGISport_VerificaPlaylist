@@ -33,7 +33,9 @@ function doPost(e) {
   try {
     risposta = richiesta ? gestisci(richiesta) : { ok: false, errore: 'bad request' };
   } catch (err) {
-    risposta = { ok: false, errore: 'bad request' };
+    // il motivo serve per capire i problemi di configurazione (es. script non creato dal foglio Google)
+    console.error(err);
+    risposta = { ok: false, errore: 'bad request', dettaglio: String((err && err.message) || err) };
   } finally {
     blocco.releaseLock();
   }
@@ -82,6 +84,7 @@ function adminOk(p, password) {
 // ---------- fogli ----------
 function foglio(nome, intestazione) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (!ss) throw new Error('no spreadsheet: create the script from the Google Sheet (Extensions → Apps Script)');
   var f = ss.getSheetByName(nome);
   if (!f) {
     f = ss.insertSheet(nome);

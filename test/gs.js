@@ -25,7 +25,8 @@ function foglioFinto(fogli) {
   };
 }
 
-// stub: { proprieta: {}, fogli: {}, adesso: Date, occupato: il blocco dello script non si ottiene }
+// stub: { proprieta: {}, fogli: {}, adesso: Date, occupato: il blocco dello script non si ottiene,
+//         senzaFoglio: script non collegato a un foglio, guastoFoglio: messaggio dell'errore di SpreadsheetApp }
 function carica(stub = {}) {
   const prop = new Map(Object.entries(stub.proprieta || {}));
   const fogli = stub.fogli || {};
@@ -44,7 +45,12 @@ function carica(stub = {}) {
         deleteProperty: (k) => { prop.delete(k); },
       }),
     },
-    SpreadsheetApp: { getActiveSpreadsheet: () => foglioFinto(fogli) },
+    SpreadsheetApp: {
+      getActiveSpreadsheet: () => {
+        if (stub.guastoFoglio) throw new Error(stub.guastoFoglio);
+        return stub.senzaFoglio ? null : foglioFinto(fogli);
+      },
+    },
     MailApp: { sendEmail: (m) => { email.push(m); } },
     LockService: {
       getScriptLock: () => ({

@@ -102,3 +102,16 @@ test('sale e impronta della password admin scritti insieme', () => {
   post({ codice: 'segreto', azione: 'destinatari' });
   assert.deepEqual(scritturePropieta, [['ADMIN_HASH', 'ADMIN_SALE']]);
 });
+
+test('script non collegato a un foglio Google: errore con il motivo', () => {
+  const { post } = carica({ proprieta: BASE, senzaFoglio: true });
+  const r = post({ codice: 'segreto', azione: 'destinatari' });
+  assert.equal(r.ok, false);
+  assert.equal(r.errore, 'bad request');
+  assert.match(r.dettaglio, /no spreadsheet/);
+});
+
+test('errore imprevisto di Google: il dettaglio arriva alla pagina', () => {
+  const { post } = carica({ proprieta: BASE, guastoFoglio: 'Exception: accesso negato' });
+  assert.deepEqual(post({ codice: 'segreto', azione: 'elencoControlli' }), { ok: false, errore: 'bad request', dettaglio: 'Exception: accesso negato' });
+});
