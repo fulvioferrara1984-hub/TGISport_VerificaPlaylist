@@ -1,0 +1,14 @@
+# Repository pubblico: si pubblicano solo i file della piattaforma (whitelist).
+/*
+!/.gitignore
+!/.nojekyll
+!/index.html
+!/app/
+!/lib/
+!/regole/
+!/backend/
+!/Logo/
+!/README.md
+!/test/
+/test/dati-locali/
+.DS_Store
