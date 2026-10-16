@@ -5,6 +5,10 @@
   const $ = (id) => document.getElementById(id);
   const stato = { excel: null, air: null }; // { file, dati (modello letto) }
   let ultimo = null; // { idControllo, risultatoOriginale, risultato, nomiFile, risposte: Map, coppie }
+  // Dopo un controllo concluso la coppia è chiusa: il file successivo ne apre una nuova, così un file nuovo
+  // non viene mai confrontato con quello della partita precedente.
+  let coppiaChiusa = false;
+  const testoIniziale = {}; // testo delle due aree vuote, letto dalla pagina
 
   const testo = (t) => document.createTextNode(t == null ? '' : String(t));
   function el(tag, attributi = {}, ...figli) {
@@ -31,8 +35,22 @@
     if (messaggio) box.classList.add('sbagliato');
   }
 
+  // Svuota le due aree e i risultati: si riparte con una coppia nuova.
+  function nuovoControllo() {
+    stato.excel = null;
+    stato.air = null;
+    ['excel', 'air'].forEach((tipo) => { mostraFile(tipo, testoIniziale[tipo]); erroreFile(tipo, ''); });
+    $('check-risultati').hidden = true;
+    $('check-stato').hidden = true;
+    ultimo = null;
+    PC.check.ultimo = null;
+    coppiaChiusa = false;
+    $('btn-nuovo').hidden = true;
+  }
+
   // Ogni file va nell'area giusta in base all'estensione, anche se trascinato nell'altra.
   async function carica(files, areaPreferita) {
+    if (coppiaChiusa) nuovoControllo();
     // i risultati sullo schermo valgono per la coppia precedente: via finché il nuovo controllo non è finito
     $('check-risultati').hidden = true;
     ultimo = null;
@@ -56,6 +74,7 @@
         erroreFile(tipo, e.message);
       }
     }
+    $('btn-nuovo').hidden = !(stato.excel || stato.air);
     if (stato.excel && stato.air) esegui();
   }
 
@@ -75,6 +94,7 @@
           coppie: PC.report.coppieDaConfermare(risultato.esiti),
         };
         PC.check.ultimo = ultimo;
+        coppiaChiusa = true;
         $('check-stato').hidden = true;
         disegna();
         document.dispatchEvent(new CustomEvent('pc:controllo-finito', { detail: ultimo }));
@@ -240,6 +260,7 @@
 
   function collega() {
     document.querySelectorAll('.carica').forEach((box) => {
+      testoIniziale[box.dataset.tipo] = box.querySelector('.carica-file').textContent;
       const input = box.querySelector('input[type=file]');
       input.addEventListener('change', () => { if (input.files.length) carica([...input.files], box.dataset.tipo); input.value = ''; });
       box.addEventListener('dragover', (e) => { e.preventDefault(); box.classList.add('sopra'); });
@@ -260,6 +281,7 @@
     $('filtro-feed').addEventListener('change', disegnaTabella);
     $('filtro-tipo').addEventListener('change', disegnaTabella);
     $('btn-scarica').addEventListener('click', scarica);
+    $('btn-nuovo').addEventListener('click', nuovoControllo);
     document.addEventListener('pc:controllo-finito', () => { messaggioServizio('check-invio', ''); salvaStorico(); });
     // senza coppie da confermare lo storico è già stato salvato a fine controllo: si aggiorna solo dopo le risposte
     document.addEventListener('pc:risposte-complete', async () => { if (!ultimo.coppie.length) return; await inviaMail(); salvaStorico(); });

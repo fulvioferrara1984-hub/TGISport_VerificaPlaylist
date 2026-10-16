@@ -136,6 +136,7 @@ button.primario:disabled { background: #b7c3ee; cursor: not-allowed; }
 .carica-titolo small { font-weight: 500; color: var(--inchiostro-3); }
 .carica-file { color: var(--inchiostro-2); font-size: 13px; word-break: break-all; }
 .carica-errore { color: var(--errore); font-size: 13px; }
+.nuovo-controllo { display: block; margin: -4px 0 16px auto; }
 .stato { margin: 0 0 16px; color: var(--inchiostro-2); }
 
 .riepilogo dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0; }

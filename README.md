@@ -8,6 +8,7 @@ L'interfaccia è in inglese britannico; codice, commenti e questo README sono in
 
 1. Aprire il sito e inserire la **password del team** di Playlist Check. Con *Remember on this device* non la chiede più su quel computer; *Sign out* la dimentica.
 2. Scheda **Check**: trascinare l'Excel e lo zip della stessa partita (o cliccare sulle due aree). Il controllo parte da solo.
+   - **New check** svuota le due aree. Dopo un controllo concluso, anche il primo file caricato apre una coppia nuova: un file nuovo non viene mai confrontato con quello della partita precedente.
    - **Summary**: partita, evento dello zip, feed e segmenti trovati; avviso se Excel e zip sembrano di partite diverse.
    - **Banner**: verde *All clear*, giallo *N to confirm*, rosso *N errors*.
    - **To confirm**: nomi quasi uguali (*Possible typo*) o che puntano sempre allo stesso brand sconosciuto (*Possible alias*). *Confirm* li conta come corretti; *Not a typo / Not an alias* come errori. Quando ogni coppia ha una risposta, i refusi confermati partono via mail ai destinatari impostati in Settings.
