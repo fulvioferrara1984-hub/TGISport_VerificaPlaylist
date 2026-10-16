@@ -72,6 +72,13 @@ test('errori inseriti apposta', { skip: pronto ? false : 'PC_COPPIE o regole-sor
     assert.deepEqual(n.map((e) => e.trovato).sort(), [...m.attesi].sort());
   });
 
+  await prova('una zona della seconda fila vuota, le altre con il brand', (m) => {
+    seg(m.air, 'Europa').intervalli[pos].mappe.delete(idZona(m.air, 'GL_DX_2'));
+  }, (n) => {
+    assert.deepEqual(n.map((e) => [e.tipo, e.feed, e.id, e.colonna, e.zona, e.atteso, e.trovato]),
+      [['Error', 'Europa', ID, colEU2, 'GL_DX_2', String(tab.righe[pos - 1].valori.get('EU|2')), 'Blank']]);
+  });
+
   await prova('file della fila sbagliata', (m) => {
     const iv = seg(m.air, 'Europa').intervalli[pos];
     zone2.forEach((z) => iv.mappe.set(idZona(m.air, z), iv.mappe.get(0)));

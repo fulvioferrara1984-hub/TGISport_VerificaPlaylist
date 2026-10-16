@@ -99,3 +99,26 @@ test('variante e refuso diventano esiti Variant e Possible typo', () => {
     { tipo: 'Possible typo', id: 1, colonna: 'G · NORTH AMERICA – Second row', zona: 'GL_SX_2', atteso: 'belta', trovato: 'MELTA_GL2' },
   ]);
 });
+
+test('una zona della fila vuota mentre le altre mostrano il brand: Error su quella zona', () => {
+  const c = prova({ zone: ['GL_SX_1', 'GL_DX_1', 'GL_SX_2', 'GL_DX_2'],
+    slot: [{ mappe: { 0: R1, 1: R1, 2: R2, 3: R2 } }, { mappe: { 0: R1, 1: BLANK, 2: R2, 3: R2 } }],
+    righe: [{ valori: ALFA }, { valori: ALFA }] });
+  assert.deepEqual(breve(c.esiti), [{ tipo: 'Error', id: 2, colonna: 'F · NORTH AMERICA – First row', zona: 'GL_DX_1', atteso: 'ALFA', trovato: 'Blank' }]);
+});
+
+test('zone mai usate nel pacchetto (es. angoli non in uso): non devono essere piene', () => {
+  const c = prova({ zone: ['GL_SX_1', 'GL_DX_1', 'LC_SX_1'], slot: [{ mappe: { 0: R1, 1: R1, 2: BLANK } }, { mappe: { 0: R1, 1: R1 } }],
+    righe: [{ valori: { 'NA|1': 'ALFA' } }, { valori: { 'NA|1': 'ALFA' } }] });
+  assert.deepEqual(c.esiti, []);
+});
+
+test('fila delle zone ricavata dai file che ospitano (TL_A di seconda fila anche senza _2 nel nome)', () => {
+  const B2 = art('BETA_TL2', 'CASA_BETA_2');
+  const due = { 'NA|1': 'ALFA', 'NA|2': 'BETA' };
+  const c = prova({ zone: ['FULL PERIMETER_1', 'TL_A'],
+    slot: [{ mappe: { 0: R1, 1: B2 } }, { mappe: { 0: art('GAMMA_SOLO-1FILA'), 1: BLANK } }, { mappe: { 0: R1, 1: B2 } }, { mappe: { 0: R1, 1: art('ALFA_GC1', 'CASA_ALFA_1') } }],
+    righe: [{ valori: due }, { valori: { 'NA|1': 'GAMMA' } }, { valori: due }, { valori: due }] });
+  // slot 2: perimetro intero di prima fila, TL_A (seconda fila) vuota e Excel senza seconda fila → nessun errore
+  assert.deepEqual(breve(c.esiti), [{ tipo: 'Error', id: 4, colonna: 'G · NORTH AMERICA – Second row', zona: 'TL_A', atteso: 'BETA', trovato: 'ALFA_GC1 (first-row file)' }]);
+});

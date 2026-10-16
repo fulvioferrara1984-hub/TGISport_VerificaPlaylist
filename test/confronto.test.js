@@ -186,3 +186,12 @@ test('i risultati di una cella portano il numero della cella; quelli del pacchet
   assert.equal(r.esiti.find((e) => e.atteso === 'AIR slot').cella, undefined); // riga Excel senza slot
   assert.equal(r.esiti.find((e) => e.atteso === 'media file').cella, undefined);
 });
+
+test('zone in uso dal pacchetto intero: una zona vuota per tutta la partita ma usata negli highlights è un errore', () => {
+  const { excel, air } = modello({ righe: ['ALFA'], slot: [A('ALFA')] });
+  air.zone = new Map([[0, 'GL_SX_1'], [1, 'CC'], [2, 'GL_DX_1']]);
+  excel.hl = tabella({ colonne: { 'EU|1': 4 }, righe: [{ valori: { 'EU|1': 'ALFA' } }] });
+  air.stream[0].segmenti[2] = segmento('Highlights', [{ mappe: { 0: A('ALFA'), 1: CIRCLE, 2: A('ALFA') } }]);
+  const r = verifica(excel, air, REGOLE);
+  assert.deepEqual(breve(r.esiti.filter((e) => e.zona === 'GL_DX_1')), [{ tipo: 'Error', id: 1, colonna: 'E · EUROPE – First row', zona: 'GL_DX_1', atteso: 'ALFA', trovato: 'Blank' }]);
+});

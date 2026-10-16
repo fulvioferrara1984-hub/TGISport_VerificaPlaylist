@@ -10,7 +10,7 @@
   const dip = (nome) => (typeof module === 'object' && module.exports ? require('./' + nome + '.js')
     : radice.PC[nome.replace(/-(\w)/g, (_, c) => c.toUpperCase())]);
   const nomi = dip('nomi');
-  const { ruoloZona, filaArtwork } = dip('zone');
+  const { ruoloZona, filaArtwork, fileDelleZone } = dip('zone');
 
   const NOME_REG = {
     NA: 'NORTH AMERICA', CSA: 'CENTRAL & SOUTH AMERICA', EU: 'EUROPE', MENA: 'MENA+SSA', ASIA: 'ASIA', FE: 'FAR EAST', VN: 'VIETNAM', DOM: 'DOMESTIC',
@@ -43,6 +43,8 @@
     const base = tipo === 'HL' ? 0 : 1;
     const nota = (...a) => c.nota(esito(a[0], stream.nome, segmento.nome, ...a.slice(1)));
     const led = (z) => ruoloZona(c.zone.get(z), c.angoliStatici, c.prefissoSponsor).startsWith('LED');
+    // fila di ogni zona LED usata: dal pacchetto intero (c.filaZona, da verifica) o, da sola, da questo segmento
+    const filaZona = c.filaZona || fileDelleZone([segmento], (z) => c.zone.get(z), led);
     c.cella = null; // risultati fuori dalle celle (righe senza slot, avvisi): senza numero di cella
     if (righe.length && righe[0].id !== 1) nota('Warning', righe[0].id, `A${righe[0].riga} · ID`, '-', 'IDs start at 1', `starts at ${righe[0].id}`);
     const piena = (r) => regioni.some((g) => r.valori.get(`${g}|1`) || r.valori.get(`${g}|2`));
@@ -68,7 +70,7 @@
       mappe.forEach((a, z) => {
         if (!led(z)) return;
         const nomeZona = c.zone.get(z);
-        if (a.ad !== 'Blank_Generic') trovati[filaArtwork(a, nomeZona, tabella.soloPrimaFila)].push([nomeZona, a]);
+        if (a.ad !== 'Blank_Generic') trovati[filaArtwork(a, nomeZona, tabella.soloPrimaFila, filaZona.get(z))].push([nomeZona, a, z]);
         else if (!nomi.k(a.file).includes('BLANK')) nota('Error', id, '-', nomeZona, 'blank file', a.file);
       });
       for (const fila of [1, 2]) {
@@ -84,7 +86,7 @@
         const e = riga.valori.get(`${r0}|${fila}`);
         const arts = trovati[fila];
         if (!arts.length) {
-          const altri = trovati[3 - fila].filter(([zn]) => ruoloZona(zn, c.angoliStatici, c.prefissoSponsor) === (fila === 1 ? 'LED1' : 'LED2'));
+          const altri = trovati[3 - fila].filter(([, , z]) => filaZona.get(z) === fila);
           if (altri.length) {
             const [zn, a] = altri[0];
             nota('Error', id, etichetta, zn, String(e || 'Blank'), `${a.ad} (${fila === 1 ? 'second' : 'first'}-row file)`);
@@ -100,6 +102,13 @@
             nota('Recovery', id, etichetta, '-', `repeat of ID ${ultimaRiga.id}`, String(eRec));
             continue;
           }
+        }
+        // con un brand nell'Excel ogni zona usata di questa fila deve mostrare un artwork, non solo alcune
+        if (e) {
+          filaZona.forEach((f, z) => {
+            const a = mappe.get(z);
+            if ((tabella.soloPrimaFila || f === fila) && (!a || a.ad === 'Blank_Generic')) nota('Error', id, etichetta, c.zone.get(z), String(e), 'Blank');
+          });
         }
         for (const [zn, a] of arts) {
           const es = confronta(c, e, a);

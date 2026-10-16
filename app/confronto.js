@@ -12,6 +12,7 @@
   const nomi = dip('nomi');
   const { NOME_REG, controllaVirtual } = dip('confronto-virtual');
   const { attesiStatici, controllaStatici } = dip('confronto-statici');
+  const { ruoloZona, fileDelleZone } = dip('zone');
 
   const NOMI_SEGMENTO = { PRE: 'Pre Match - Post Match', MATCH: '1st - 2nd Half', MATCH1: '1st Half', MATCH2: '2nd Half', HL: 'Highlights' };
 
@@ -84,6 +85,9 @@
     const angoliStatici = [...excel.statici.keys()].some((c) => c.startsWith('LC|'));
     let esiti = [];
     const c = { zone: air.zone, angoliStatici, prefissoSponsor: regole.zoneSponsor && regole.zoneSponsor.prefisso, ctxNomi, giusti: new Set(), celle: { n: 0 }, cella: null };
+    // fila delle zone LED in uso, dal pacchetto intero: una zona dimenticata per tutto un segmento resta da controllare
+    c.filaZona = fileDelleZone(air.stream.flatMap((s) => s.segmenti), (z) => air.zone.get(z),
+      (z) => ruoloZona(air.zone.get(z), angoliStatici, c.prefissoSponsor).startsWith('LED'));
     // ogni risultato prende il numero della cella in controllo (null fuori dalle celle): serve a contare le celle corrette
     c.nota = (e) => esiti.push(c.cella ? { ...e, cella: c.cella } : e);
     const tabelle = Object.values(excel.partite).concat([excel.hl]);
