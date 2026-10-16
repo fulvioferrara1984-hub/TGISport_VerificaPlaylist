@@ -33,13 +33,31 @@ function hdmEvento({ nome = 'ALFA-BETA', data = '2026-10-12', venue = 'Stadio Pr
   return t + '  }\n  \n  \n}\n';
 }
 
-// AIR package come ArrayBuffer: { cartella, evento, sequenze: { 'sequences/x.hdm': testo }, media: [nomi] }
+// Video mp4 minimo con la sola durata (box moov/mvhd): versione 0 o 1 del box, moov prima o dopo i dati.
+function mp4(secondi, { versione = 0, moovInFondo = false, timescale = 600 } = {}) {
+  const box = (tipo, ...parti) => {
+    const corpo = Buffer.concat(parti.map((x) => Buffer.from(x)));
+    const b = Buffer.alloc(8 + corpo.length);
+    b.writeUInt32BE(b.length, 0); b.write(tipo, 4, 'latin1'); corpo.copy(b, 8);
+    return b;
+  };
+  const d = Math.round(secondi * timescale);
+  const mvhd = Buffer.alloc(versione === 1 ? 112 : 100);
+  mvhd[0] = versione;
+  if (versione === 1) { mvhd.writeUInt32BE(timescale, 20); mvhd.writeUInt32BE(Math.floor(d / 2 ** 32), 24); mvhd.writeUInt32BE(d % 2 ** 32, 28); }
+  else { mvhd.writeUInt32BE(timescale, 12); mvhd.writeUInt32BE(d, 16); }
+  const parti = [box('ftyp', Buffer.from('isom0000')), box('moov', box('mvhd', mvhd)), box('mdat', Buffer.alloc(64))];
+  if (moovInFondo) parti.push(parti.splice(1, 1)[0]);
+  return new Uint8Array(Buffer.concat(parti));
+}
+
+// AIR package come ArrayBuffer: { cartella, evento, sequenze: { 'sequences/x.hdm': testo }, media: [nome | [nome, byte]] }
 async function zipAir(JSZip, { cartella = '20261012_alfa-beta', evento, sequenze = {}, media = [] }) {
   const z = new JSZip();
   z.file(`${cartella}/version.txt`, 'version: 2.01');
   if (evento) z.file(`${cartella}/event.hdm`, evento);
   Object.entries(sequenze).forEach(([p, t]) => z.file(`${cartella}/${p}`, t));
-  media.forEach((m) => z.file(`${cartella}/advertisements/${m}`, new Uint8Array([1, 2, 3])));
+  media.forEach((m) => (Array.isArray(m) ? z.file(`${cartella}/advertisements/${m[0]}`, m[1]) : z.file(`${cartella}/advertisements/${m}`, new Uint8Array([1, 2, 3]))));
   return z.generateAsync({ type: 'arraybuffer' });
 }
 
@@ -53,4 +71,4 @@ async function spiaLetture(JSZip, dati) {
   return { letti, ripristina: () => { proto.async = originale; } };
 }
 
-module.exports = { hdmSequenza, hdmEvento, zipAir, spiaLetture };
+module.exports = { hdmSequenza, hdmEvento, mp4, zipAir, spiaLetture };

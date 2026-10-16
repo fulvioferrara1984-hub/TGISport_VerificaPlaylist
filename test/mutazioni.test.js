@@ -79,6 +79,19 @@ test('errori inseriti apposta', { skip: pronto ? false : 'PC_COPPIE o regole-sor
       [['Error', 'Europa', ID, colEU2, 'GL_DX_2', String(tab.righe[pos - 1].valori.get('EU|2')), 'Blank']]);
   });
 
+  await prova('video più corto dello slot (es. la versione da 10" in uno slot da 15")', (m) => {
+    const nome = (x) => String(x.file).split('/').pop();
+    const ivs = seg(m.air, 'Europa').intervalli;
+    const i = ivs.findIndex((iv) => [...iv.mappe.values()].some((x) => m.air.durateMedia.has(nome(x))));
+    const video = [...ivs[i].mappe.values()].find((x) => m.air.durateMedia.has(nome(x)));
+    m.air.durateMedia.set(nome(video), ivs[i].durata / 1000 - 5);
+    m.prova = { i, durata: ivs[i].durata / 1000 - 5 };
+  }, (n, m) => {
+    assert.ok(n.length >= 1);
+    assert.ok(n.every((e) => e.tipo === 'Error' && e.atteso.startsWith('video fitting a') && e.trovato.endsWith(` · ${m.prova.durata} s`)), JSON.stringify(n[0]));
+    assert.ok(n.some((e) => e.feed === 'Europa' && e.id === m.prova.i));
+  });
+
   await prova('file della fila sbagliata', (m) => {
     const iv = seg(m.air, 'Europa').intervalli[pos];
     zone2.forEach((z) => iv.mappe.set(idZona(m.air, z), iv.mappe.get(0)));
@@ -109,8 +122,11 @@ test('errori inseriti apposta', { skip: pronto ? false : 'PC_COPPIE o regole-sor
       Object.assign(m.excel.partite.MATCH.righe[pos - 1], { durataMs: excelMs, durataTesto: testo });
       m.air.stream.forEach((s) => s.segmenti.filter((g) => g.nome.includes('1st')).forEach((g) => cambiaDurata(g, pos, s.nome === 'Europa' ? zipMs : excelMs)));
     }, (n) => {
-      assert.deepEqual(n.map((e) => [e.tipo, e.feed, e.id, e.colonna, e.atteso, e.trovato]),
+      // i video da 15" di quello slot non ci stanno più (in ogni feed la durata cambiata): errori anche per loro, nello stesso slot
+      const video = n.filter((e) => e.atteso.startsWith('video fitting a'));
+      assert.deepEqual(n.filter((e) => !video.includes(e)).map((e) => [e.tipo, e.feed, e.id, e.colonna, e.atteso, e.trovato]),
         [['Error', 'Europa', ID, `C${tab.righe[pos - 1].riga} · Duration`, testo, `${zipMs / 1000} s`]]);
+      assert.ok(video.every((e) => e.tipo === 'Error' && e.id === pos), JSON.stringify(video[0]));
     });
   }
 

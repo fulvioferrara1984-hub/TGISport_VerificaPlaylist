@@ -77,6 +77,14 @@
     return esiti.map((e) => (candidato(e) && probabili.has(nomi.k(nomi.senzaCodici(e.atteso))) ? { ...e, tipo: 'Possible alias' } : e));
   }
 
+  // Un video sta nello slot se lo slot dura un numero intero di volte il video (gira 1, 2… volte), con mezzo secondo di tolleranza:
+  // un 15" in uno slot da 30 va bene, in uno da 10 no; un 10" in uno slot da 15 no.
+  function staNelloSlot(video, slot) {
+    const volte = Math.round(slot / video);
+    return volte >= 1 && Math.abs(slot - volte * video) <= 0.5;
+  }
+  const secondi = (x) => `${Number(x.toFixed(2))} s`;
+
   // excel: da letturaExcel.leggiExcel; air: da letturaAir.leggiAir; regole: { alias, zoneSponsor: { prefisso, etichetta, DOM, FE, altri } }.
   function verifica(excel, air, regole) {
     const ev = air.evento;
@@ -132,11 +140,14 @@
         if (!tipo) { nota('Warning', '-', '-', '-', 'known segment', 'not checked'); continue; }
         if (tipo.startsWith('MATCH') && !excel.partite[tipo]) { nota('Error', '-', '-', '-', `Excel sheet for ${seg.nome}`, 'missing'); continue; }
         seg.intervalli.forEach((iv, i) => {
+          const id = tipo.startsWith('MATCH') ? i : i + 1; // come negli statici: lo slot 0 delle partite è il lead-in
           const dopo = seg.intervalli[i + 1];
-          if (dopo && dopo.inizio !== iv.inizio + iv.durata) nota('Error', i, '-', '-', 'contiguous slots', `gap at ${iv.inizio + iv.durata} ms`);
+          if (dopo && dopo.inizio !== iv.inizio + iv.durata) nota('Error', id, '-', '-', 'contiguous slots', `gap at ${iv.inizio + iv.durata} ms`);
           iv.mappe.forEach((a, z) => {
             const file = String(a.file).split('/').pop();
-            if (air.media && air.media.size && !air.media.has(file)) nota('Error', i, '-', air.zone.get(z), 'media file', 'missing ' + file);
+            if (air.media && air.media.size && !air.media.has(file)) nota('Error', id, '-', air.zone.get(z), 'media file', 'missing ' + file);
+            const video = air.durateMedia && air.durateMedia.get(file);
+            if (video && !staNelloSlot(video, iv.durata / 1000)) nota('Error', id, '-', air.zone.get(z), `video fitting a ${secondi(iv.durata / 1000)} slot`, `${a.ad} · ${secondi(video)}`);
           });
         });
         if (tipo !== 'PRE') controllaVirtual(c, stream, seg, tipo, tipo === 'HL' ? excel.hl : excel.partite[tipo]);

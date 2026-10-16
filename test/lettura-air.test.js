@@ -2,7 +2,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { librerie } = require('./aiuto.js');
-const { hdmSequenza, hdmEvento, zipAir, spiaLetture } = require('./fixture-air.js');
+const { hdmSequenza, hdmEvento, mp4, zipAir, spiaLetture } = require('./fixture-air.js');
 const { parseSequenza, parseEvento, regioniStream, leggiAir } = require('../app/lettura-air.js');
 
 const { JSZip } = librerie();
@@ -47,7 +47,7 @@ test('regioni degli stream', () => {
   assert.deepEqual([...regioniStream('North America')], ['NA']);
 });
 
-test('leggiAir: sequenze, sequenza mancante e media, leggendo solo i .hdm', async () => {
+test('leggiAir: sequenze, sequenza mancante e media, leggendo solo i .hdm e i video usati', async () => {
   const evento = hdmEvento({ stream: [['Europa', [['1st Half - 2nd Half', 'sequences/europa_1st.hdm'], ['Highlights', 'sequences/europa_hl.hdm']]]] });
   const dati = await zipAir(JSZip, {
     evento, sequenze: { 'sequences/europa_1st.hdm': hdmSequenza([{ inizio: 0, durata: 15000, mappe: [['10', [0]]] }], ADS) },
@@ -61,7 +61,7 @@ test('leggiAir: sequenze, sequenza mancante e media, leggendo solo i .hdm', asyn
     assert.equal(air.stream[0].segmenti[1].intervalli, null);
     assert.ok(air.media.has('5_casa_alfa_1.mp4'));
     assert.ok(spia.letti.length > 0);
-    assert.ok(spia.letti.every((p) => p.endsWith('.hdm')), spia.letti.join(', '));
+    assert.ok(spia.letti.every((p) => p.endsWith('.hdm') || p.endsWith('/5_casa_alfa_1.mp4')), spia.letti.join(', '));
   } finally {
     spia.ripristina();
   }
@@ -85,4 +85,22 @@ test('file .hdm con a capo di Windows (CRLF), come quelli veri', () => {
   const iv = parseSequenza(crlf(hdmSequenza([{ inizio: 0, durata: 15000, mappe: [['10', [0]]] }], ADS)));
   assert.equal(iv.length, 1);
   assert.equal(iv[0].mappe.get(0).file, '../advertisements/5_casa_alfa_1.mp4');
+});
+
+test('leggiAir: durata dei video usati (box mvhd, anche versione 1 o in fondo al file); immagini e video non usati non si leggono', async () => {
+  const ads = { 10: ['ALFA_GC1', 'CASA_ALFA_1', '../advertisements/5_alfa.mp4'], 11: ['BETA_GC1', 'CASA_BETA_1', '../advertisements/6_beta.mp4'],
+    12: ['GAMMA_GC1', 'CASA_GAMMA_1', '../advertisements/7_gamma.mov'], 13: ['Blank_Generic', 'Blank_Generic', '../advertisements/1503_blank_generic.png'] };
+  const evento = hdmEvento({ stream: [['Europa', [['1st Half - 2nd Half', 'sequences/e.hdm']]]] });
+  const dati = await zipAir(JSZip, {
+    evento, sequenze: { 'sequences/e.hdm': hdmSequenza([{ inizio: 0, durata: 15000, mappe: [['10', [0]], ['11', [1]], ['12', [2]], ['13', [3]]] }], ads) },
+    media: [['5_alfa.mp4', mp4(15)], ['6_beta.mp4', mp4(10, { versione: 1 })], ['7_gamma.mov', mp4(30, { moovInFondo: true })], '1503_blank_generic.png', ['9_inutile.mp4', mp4(20)]],
+  });
+  const spia = await spiaLetture(JSZip, dati);
+  try {
+    const air = await leggiAir(dati, JSZip);
+    assert.deepEqual([...air.durateMedia].sort(), [['5_alfa.mp4', 15], ['6_beta.mp4', 10], ['7_gamma.mov', 30]]);
+    assert.ok(!spia.letti.some((p) => p.endsWith('.png') || p.endsWith('9_inutile.mp4')), spia.letti.join(', '));
+  } finally {
+    spia.ripristina();
+  }
 });

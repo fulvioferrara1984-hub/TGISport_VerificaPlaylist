@@ -85,7 +85,8 @@ test('slot non contigui', () => {
   const { excel, air } = modello({ righe: ['ALFA', 'ALFA'], slot: [A('ALFA'), A('ALFA')] });
   air.stream[0].segmenti[0].intervalli[2].inizio = 40000;
   const r = verifica(excel, air, REGOLE);
-  assert.deepEqual(breve(r.esiti.filter((e) => e.atteso === 'contiguous slots')), [{ tipo: 'Error', id: 1, colonna: '-', zona: '-', atteso: 'contiguous slots', trovato: 'gap at 30000 ms' }]);
+  // pre-match: slot numerati da 1, come negli statici (il buco è dopo il secondo slot)
+  assert.deepEqual(breve(r.esiti.filter((e) => e.atteso === 'contiguous slots')), [{ tipo: 'Error', id: 2, colonna: '-', zona: '-', atteso: 'contiguous slots', trovato: 'gap at 30000 ms' }]);
 });
 
 test('tempi separati: ogni foglio con la sua sequenza', () => {
@@ -194,4 +195,16 @@ test('zone in uso dal pacchetto intero: una zona vuota per tutta la partita ma u
   air.stream[0].segmenti[2] = segmento('Highlights', [{ mappe: { 0: A('ALFA'), 1: CIRCLE, 2: A('ALFA') } }]);
   const r = verifica(excel, air, REGOLE);
   assert.deepEqual(breve(r.esiti.filter((e) => e.zona === 'GL_DX_1')), [{ tipo: 'Error', id: 1, colonna: 'E · EUROPE – First row', zona: 'GL_DX_1', atteso: 'ALFA', trovato: 'Blank' }]);
+});
+
+test('video che non sta nello slot: errore; se ci sta un numero intero di volte (gira più volte) va bene', () => {
+  const { excel, air } = modello({ righe: ['ALFA', 'ALFA', 'BETA', 'BETA'], slot: [A('ALFA'), A('ALFA'), A('BETA'), A('BETA')] });
+  const durate = [15000, 10000, 30000, 15000, 30000]; // lead-in, poi gli slot
+  air.stream[0].segmenti[1] = segmento('1st Half - 2nd Half', air.stream[0].segmenti[1].intervalli.map((iv, i) => ({ durata: durate[i], mappe: Object.fromEntries(iv.mappe) })));
+  air.durateMedia = new Map([['1000_alfa_gc1.mp4', 15], ['1000_beta_gc1.mp4', 10]]);
+  const r = verifica(excel, air, REGOLE);
+  assert.deepEqual(breve(r.esiti.filter((e) => String(e.atteso).startsWith('video'))), [
+    { tipo: 'Error', id: 1, colonna: '-', zona: 'FULL PERIMETER', atteso: 'video fitting a 10 s slot', trovato: 'ALFA_GC1 · 15 s' },
+    { tipo: 'Error', id: 3, colonna: '-', zona: 'FULL PERIMETER', atteso: 'video fitting a 15 s slot', trovato: 'BETA_GC1 · 10 s' },
+  ]);
 });

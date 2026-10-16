@@ -31,7 +31,7 @@ L'interfaccia è in inglese britannico; codice, commenti e questo README sono in
 ## Cosa si controlla
 
 - **Virtual**: per ogni feed, slot e fila, il brand dell'Excel contro gli artwork dello zip. La fila di un artwork si ricava dal suffisso (`_1`/`_J` prima fila, `_2` seconda) del nome advertiser, poi dell'ad, poi del file. Quando l'Excel ha un brand, **ogni zona LED in uso** di quella fila deve mostrarlo, non solo alcune. La fila di una zona è quella scritta nel nome (`_1`/`_2`), altrimenti quella dei file che ospita (es. TL_A di seconda fila); le zone mai usate nel pacchetto (es. angoli non in uso) non contano.
-- **Durate** di ogni slot (colonna C) e slot contigui.
+- **Durate** di ogni slot (colonna C) e slot contigui. Ogni **video** (mp4/mov) deve stare nel suo slot: lo slot dura un numero intero di volte il video (un 15" in uno slot da 30 gira due volte e va bene; un 15" in uno slot da 10, o un 10" in uno da 15, è un errore). La durata si legge dal file vero, quindi vale anche quando i nomi delle versioni da 10" e da 15" coincidono.
 - **Asset statici** in ogni slot dei tre segmenti: centro campo (solo nel secondo slot del pre-match), CLUB MAT, zone a regola fissa (sponsor diverso per Domestico, Far East e altri feed), ADDITIONAL (anche su RSX/RDX), LOWER CORNER.
 - **Pacchetto**: file media e sequenze presenti, feed presenti per le regioni con contenuto. Un segmento con un nome che non si riconosce non viene controllato (avviso).
 - **Excel**: il foglio highlights è quello che si chiama HL/HIGHLIGHT, altrimenti il primo rimasto con la colonna ID; una riga con un ID non numerico resta al suo posto, con un avviso.

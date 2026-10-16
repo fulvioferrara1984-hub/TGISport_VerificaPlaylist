@@ -74,6 +74,35 @@
   }
 
   // AIR package completo. Si legge il contenuto dei soli .hdm: dei media (mp4, png, mov) serve solo l'elenco dei nomi.
+  // Durata in secondi di un video mp4/mov, dal box mvhd dentro moov (che può stare anche in fondo al file); null se non si trova.
+  function durataVideo(b) {
+    try {
+      const dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
+      const tipo = (i) => String.fromCharCode(b[i], b[i + 1], b[i + 2], b[i + 3]);
+      // primo box del tipo cercato tra "da" e "a": [inizio del contenuto, fine]
+      const cerca = (da, a, cercato) => {
+        for (let i = da; i + 8 <= a;) {
+          let dim = dv.getUint32(i);
+          let testa = 8;
+          if (dim === 1) { dim = dv.getUint32(i + 8) * 2 ** 32 + dv.getUint32(i + 12); testa = 16; } else if (dim === 0) dim = a - i;
+          if (dim < testa) return null;
+          if (tipo(i + 4) === cercato) return [i + testa, Math.min(i + dim, a)];
+          i += dim;
+        }
+        return null;
+      };
+      const moov = cerca(0, b.length, 'moov');
+      const mvhd = moov && cerca(moov[0], moov[1], 'mvhd');
+      if (!mvhd) return null;
+      const p = mvhd[0];
+      const ts = dv.getUint32(p + (b[p] === 1 ? 20 : 12));
+      const durata = b[p] === 1 ? dv.getUint32(p + 24) * 2 ** 32 + dv.getUint32(p + 28) : dv.getUint32(p + 16);
+      return ts ? durata / ts : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
   async function leggiAir(dati, JSZip) {
     let zip;
     try {
@@ -97,8 +126,18 @@
       }
       stream.push({ nome: s.nome, regioni: s.regioni, segmenti });
     }
-    return { evento: { nome: evento.nome, data: evento.data, venue: evento.venue }, zone: evento.zone, stream, media };
+    // durata dei video usati nelle sequenze (servono a controllare che stiano nei loro slot); immagini e video non usati non si leggono
+    const usati = new Set();
+    stream.forEach((s) => s.segmenti.forEach((g) => (g.intervalli || []).forEach((iv) => iv.mappe.forEach((a) => usati.add(String(a.file).split('/').pop())))));
+    const durateMedia = new Map();
+    for (const nome of usati) {
+      const voce = zip.files[radiceZip + 'advertisements/' + nome];
+      if (!/\.(mp4|mov|m4v)$/i.test(nome) || !voce || voce.dir) continue;
+      const durata = durataVideo(await voce.async('uint8array'));
+      if (durata) durateMedia.set(nome, durata);
+    }
+    return { evento: { nome: evento.nome, data: evento.data, venue: evento.venue }, zone: evento.zone, stream, media, durateMedia };
   }
 
-  return { NOME: 'letturaAir', regioniStream, parseSequenza, parseEvento, leggiAir };
+  return { NOME: 'letturaAir', regioniStream, parseSequenza, parseEvento, durataVideo, leggiAir };
 });
