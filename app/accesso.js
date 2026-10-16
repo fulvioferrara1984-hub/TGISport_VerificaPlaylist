@@ -1,4 +1,4 @@
-/* Playlist Check — accesso con la password del team (la stessa di Mockup Studio). */
+/* Playlist Check — accesso con la password del team. */
 (function (PC) {
   'use strict';
 

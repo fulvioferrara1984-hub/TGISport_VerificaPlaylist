@@ -6,7 +6,7 @@ L'interfaccia è in inglese britannico; codice, commenti e questo README sono in
 
 ## Come si usa
 
-1. Aprire il sito e inserire la **password del team** (la stessa di Mockup Studio). Con *Remember on this device* non la chiede più su quel computer; *Sign out* la dimentica.
+1. Aprire il sito e inserire la **password del team** di Playlist Check. Con *Remember on this device* non la chiede più su quel computer; *Sign out* la dimentica.
 2. Scheda **Check**: trascinare l'Excel e lo zip della stessa partita (o cliccare sulle due aree). Il controllo parte da solo.
    - **Summary**: partita, evento dello zip, feed e segmenti trovati; avviso se Excel e zip sembrano di partite diverse.
    - **Banner**: verde *All clear*, giallo *N to confirm*, rosso *N errors*.
@@ -38,10 +38,10 @@ Le righe Excel si abbinano agli slot **per posizione** (lo slot 0 delle partite 
 Le regole in chiaro stanno solo in locale (`regole-sorgente/regole.json`, mai pubblicato). Dopo una modifica:
 
 ```bash
-node strumenti/cifra-regole.mjs ../Mockup/password-team.txt regole-sorgente/regole.json regole/regole.js
+node strumenti/cifra-regole.mjs regole-sorgente/password.txt regole-sorgente/regole.json regole/regole.js --nuova
 ```
 
-Lo strumento (locale) trova da solo la riga della password che apre la protezione di Mockup Studio e non la stampa mai. Poi si aumenta il numero `?v=` dei file in `index.html` e si pubblica.
+La password del team sta solo in locale in `regole-sorgente/password.txt` (prima riga che non inizia con `#`); lo strumento non la stampa mai. Per cambiarla basta scrivere la nuova nel file e rilanciare il comando. Poi si aumenta il numero `?v=` dei file in `index.html` e si pubblica.
 
 ## Struttura
 
