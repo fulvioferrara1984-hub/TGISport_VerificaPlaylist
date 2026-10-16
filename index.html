@@ -7,7 +7,7 @@
   <title>Playlist Check · TGI Sport</title>
   <link rel="icon" type="image/png" href="app/favicon.png">
   <link rel="apple-touch-icon" href="app/favicon-180.png">
-  <link rel="stylesheet" href="app/stile.css?v=12">
+  <link rel="stylesheet" href="app/stile.css?v=13">
 </head>
 <body>
   <header class="testata">
@@ -70,6 +70,7 @@
           <p class="nota">The names below look like typos or aliases. Confirm them if they are the same brand: the email to the reviewers is sent when every pair has an answer.</p>
           <div class="conferme" id="check-elenco-conferme"></div>
           <p class="nota" id="check-invio" hidden></p>
+          <p class="nota" id="check-alias" hidden></p>
         </section>
 
         <section class="scheda">
@@ -129,7 +130,7 @@
 
     <section class="vista" id="vista-settings" hidden>
       <h1>Settings</h1>
-      <p class="sottotitolo">Who receives the email with the confirmed typos and aliases.</p>
+      <p class="sottotitolo">Who receives the email with the confirmed typos and aliases, and which aliases are official.</p>
       <section class="scheda">
         <h2>Recipients</h2>
         <ul class="elenco" id="imp-elenco"></ul>
@@ -145,6 +146,37 @@
         </div>
         <p class="nota" id="imp-messaggio" hidden></p>
       </section>
+      <section class="scheda" id="alias-scheda">
+        <h2>Aliases</h2>
+        <p class="nota">Names confirmed during checks. Once made official, a name counts as correct in every later check, for everyone.</p>
+        <h3>Waiting for approval</h3>
+        <div class="tabella-contenitore">
+          <table class="tabella" id="alias-proposti">
+            <thead><tr><th>Excel</th><th>AIR</th><th>Type</th><th>Confirmed</th><th>Last match</th><th></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <p class="nota" id="alias-proposti-vuoto" hidden>Nothing waiting.</p>
+        <h3>Official</h3>
+        <div class="tabella-contenitore">
+          <table class="tabella" id="alias-ufficiali">
+            <thead><tr><th>Excel</th><th>AIR</th><th>Approved</th><th></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <p class="nota" id="alias-ufficiali-vuoto" hidden>No aliases approved in Settings yet.</p>
+        <details class="alias-interni">
+          <summary>Built-in aliases <small id="alias-interni-conta"></small></summary>
+          <div class="tabella-contenitore">
+            <table class="tabella" id="alias-interni">
+              <thead><tr><th>Excel</th><th>AIR</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </details>
+        <label class="campo alias-password"><span>Admin password (to approve or remove)</span><input type="password" id="alias-password" autocomplete="off"></label>
+        <p class="nota" id="alias-messaggio" hidden></p>
+      </section>
     </section>
   </main>
 
@@ -152,23 +184,24 @@
 
   <script src="lib/jszip.min.js"></script>
   <script src="lib/xlsx.full.min.js"></script>
-  <script src="regole/regole.js?v=12"></script>
-  <script src="app/nomi.js?v=12"></script>
-  <script src="app/zone.js?v=12"></script>
-  <script src="app/lettura-air.js?v=12"></script>
-  <script src="app/lettura-excel.js?v=12"></script>
-  <script src="app/confronto-virtual.js?v=12"></script>
-  <script src="app/confronto-statici.js?v=12"></script>
-  <script src="app/confronto.js?v=12"></script>
-  <script src="app/report.js?v=12"></script>
-  <script src="app/cifratura.js?v=12"></script>
-  <script src="app/regole.js?v=12"></script>
-  <script src="app/archivio.js?v=12"></script>
-  <script src="app/accesso.js?v=12"></script>
-  <script src="app/servizio.js?v=12"></script>
-  <script src="app/statistiche.js?v=12"></script>
-  <script src="app/impostazioni.js?v=12"></script>
-  <script src="app/check.js?v=12"></script>
-  <script src="app/app.js?v=12"></script>
+  <script src="regole/regole.js?v=13"></script>
+  <script src="app/nomi.js?v=13"></script>
+  <script src="app/zone.js?v=13"></script>
+  <script src="app/lettura-air.js?v=13"></script>
+  <script src="app/lettura-excel.js?v=13"></script>
+  <script src="app/confronto-virtual.js?v=13"></script>
+  <script src="app/confronto-statici.js?v=13"></script>
+  <script src="app/confronto.js?v=13"></script>
+  <script src="app/report.js?v=13"></script>
+  <script src="app/cifratura.js?v=13"></script>
+  <script src="app/regole.js?v=13"></script>
+  <script src="app/archivio.js?v=13"></script>
+  <script src="app/accesso.js?v=13"></script>
+  <script src="app/servizio.js?v=13"></script>
+  <script src="app/alias.js?v=13"></script>
+  <script src="app/statistiche.js?v=13"></script>
+  <script src="app/impostazioni.js?v=13"></script>
+  <script src="app/check.js?v=13"></script>
+  <script src="app/app.js?v=13"></script>
 </body>
 </html>

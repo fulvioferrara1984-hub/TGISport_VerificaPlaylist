@@ -17,6 +17,7 @@ function foglioFinto(fogli) {
       setValues: (v) => { for (let i = 0; i < nRighe; i++) { fogli[nome][riga - 1 + i] = fogli[nome][riga - 1 + i] || []; for (let c = 0; c < nCol; c++) fogli[nome][riga - 1 + i][col - 1 + c] = v[i][c]; } },
     }),
     clearContents: () => { fogli[nome].length = 0; },
+    deleteRow: (n) => { fogli[nome].splice(n - 1, 1); },
     setFrozenRows: () => {},
   });
   return {

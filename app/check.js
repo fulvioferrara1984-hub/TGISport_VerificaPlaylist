@@ -51,6 +51,8 @@
   // Ogni file va nell'area giusta in base all'estensione, anche se trascinato nell'altra.
   async function carica(files, areaPreferita) {
     if (coppiaChiusa) nuovoControllo();
+    // alias approvati in Settings, riletti mentre si leggono i file (al massimo 5 secondi; se lo script non risponde restano quelli di prima)
+    const aliasAggiornati = PC.alias.aggiorna(PC.app.regole.servizio);
     // i risultati sullo schermo valgono per la coppia precedente: via finché il nuovo controllo non è finito
     $('check-risultati').hidden = true;
     ultimo = null;
@@ -75,6 +77,7 @@
       }
     }
     $('btn-nuovo').hidden = !(stato.excel || stato.air);
+    await aliasAggiornati;
     if (stato.excel && stato.air) esegui();
   }
 
@@ -83,7 +86,7 @@
     $('check-stato').textContent = 'Checking…';
     setTimeout(() => {
       try {
-        const risultato = PC.confronto.verifica(stato.excel.dati, stato.air.dati, PC.app.regole);
+        const risultato = PC.confronto.verifica(stato.excel.dati, stato.air.dati, PC.alias.regoleCon(PC.app.regole));
         ultimo = {
           idControllo: crypto.randomUUID(),
           dataControllo: new Date().toISOString(),
@@ -209,6 +212,7 @@
     'no recipients': 'no recipients are set in Settings',
     'rate limit': 'too many emails this hour, try again later',
     unreachable: 'the service could not be reached',
+    'unknown action': 'the Google script needs updating',
   };
   const motivo = (r) => MOTIVI[r.errore] || r.errore || 'unknown error';
 
@@ -237,6 +241,22 @@
     if (questo !== ultimo) return;
     if (r.ok) messaggioServizio('check-storico', '');
     else messaggioServizio('check-storico', `Couldn't save statistics: ${motivo(r)}.`, 'male', salvaStorico);
+  }
+
+  // Coppie confermate → foglio Aliases dello script come proposte, da rendere ufficiali in Settings (una volta per controllo).
+  async function proponiAlias() {
+    const questo = ultimo;
+    const coppie = PC.alias.proposte(questo);
+    if (!coppie.length || questo.aliasProposti || !PC.report.coppiaGiusta(questo.risultatoOriginale)) return;
+    const r = await PC.servizio.chiama(PC.app.regole.servizio, 'proponiAlias', { partita: questo.risultatoOriginale.riepilogo.partita, coppie });
+    if (questo !== ultimo) return;
+    if (r.ok) {
+      questo.aliasProposti = true;
+      PC.alias.imposta(r.righe);
+      messaggioServizio('check-alias', 'Confirmed names saved: an admin can make them official in Settings → Aliases.', 'bene');
+    } else {
+      messaggioServizio('check-alias', `Couldn't save the confirmed names for Settings: ${motivo(r)}.`, 'male', proponiAlias);
+    }
   }
 
   // La mail parte una sola volta per controllo, quando ogni coppia ha una risposta e almeno una è confermata.
@@ -292,9 +312,9 @@
     $('filtro-tipo').addEventListener('change', disegnaTabella);
     $('btn-scarica').addEventListener('click', scarica);
     $('btn-nuovo').addEventListener('click', nuovoControllo);
-    document.addEventListener('pc:controllo-finito', () => { messaggioServizio('check-invio', ''); salvaStorico(); });
+    document.addEventListener('pc:controllo-finito', () => { messaggioServizio('check-invio', ''); messaggioServizio('check-alias', ''); salvaStorico(); });
     // senza coppie da confermare lo storico è già stato salvato a fine controllo: si aggiorna solo dopo le risposte
-    document.addEventListener('pc:risposte-complete', async () => { if (!ultimo.coppie.length) return; await inviaMail(); salvaStorico(); });
+    document.addEventListener('pc:risposte-complete', async () => { if (!ultimo.coppie.length) return; proponiAlias(); await inviaMail(); salvaStorico(); });
   }
 
   PC.check = { carica, ultimo: null };

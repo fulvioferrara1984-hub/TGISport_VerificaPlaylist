@@ -146,3 +146,33 @@ test('password admin: un accesso giusto azzera i tentativi sbagliati', () => {
   for (let i = 0; i < 4; i++) assert.equal(prova('sbagliata').errore, 'wrong admin password');
   assert.equal(prova('admin-prova').ok, true);
 });
+
+const proposta = (chiave, excel, air, tipo = 'Possible alias') => ({ chiave, excel, air, tipo });
+
+test('alias: le coppie confermate diventano proposte, contate se tornano', () => {
+  const { post, fogli } = carica({ proprieta: BASE, adesso: new Date('2026-10-16T10:00:00Z') });
+  assert.equal(post({ codice: 'segreto', azione: 'proponiAlias', dati: { partita: 'ALFA - BETA', coppie: [proposta('ZORROTV|ZTV', 'ZORRO TV', 'ZTV')] } }).ok, true);
+  post({ codice: 'segreto', azione: 'proponiAlias', dati: { partita: 'GAMMA - ALFA', coppie: [proposta('ZORROTV|ZTV', 'ZORRO TV', 'ZTV'), proposta('BELTA|MELTA', 'belta', 'MELTA', 'Possible typo')] } });
+  assert.deepEqual([...fogli.Aliases[0]], ['chiave', 'excel', 'air', 'tipo', 'stato', 'volte', 'ultimaData', 'ultimaPartita', 'approvatoIl']);
+  const r = post({ codice: 'segreto', azione: 'alias' });
+  assert.deepEqual(r.righe.map((x) => [x.chiave, x.stato, x.volte, x.ultimaPartita, x.ultimaData]),
+    [['ZORROTV|ZTV', 'proposed', 2, 'GAMMA - ALFA', '2026-10-16T10:00:00.000Z'], ['BELTA|MELTA', 'proposed', 1, 'GAMMA - ALFA', '2026-10-16T10:00:00.000Z']]);
+  // chiavi non valide: rifiutate
+  assert.equal(post({ codice: 'segreto', azione: 'proponiAlias', dati: { coppie: [proposta('=1+1|X', 'x', 'y')] } }).errore, 'invalid alias');
+});
+
+test('alias: approvare e togliere solo con la password admin', () => {
+  const { post } = carica({ proprieta: BASE });
+  post({ codice: 'segreto', azione: 'proponiAlias', dati: { partita: 'ALFA - BETA', coppie: [proposta('ZORROTV|ZTV', 'ZORRO TV', 'ZTV'), proposta('BELTA|MELTA', 'belta', 'MELTA')] } });
+  assert.equal(post({ codice: 'segreto', azione: 'approvaAlias', dati: { password: 'no', chiave: 'ZORROTV|ZTV' } }).errore, 'wrong admin password');
+  const ok = post({ codice: 'segreto', azione: 'approvaAlias', dati: { password: 'admin-prova', chiave: 'ZORROTV|ZTV' } });
+  assert.equal(ok.ok, true);
+  assert.deepEqual(ok.righe.map((x) => [x.chiave, x.stato]), [['ZORROTV|ZTV', 'official'], ['BELTA|MELTA', 'proposed']]);
+  assert.ok(ok.righe[0].approvatoIl);
+  // una nuova conferma di un alias già ufficiale non lo rimette tra i proposti
+  post({ codice: 'segreto', azione: 'proponiAlias', dati: { partita: 'X - Y', coppie: [proposta('ZORROTV|ZTV', 'ZORRO TV', 'ZTV')] } });
+  assert.equal(post({ codice: 'segreto', azione: 'alias' }).righe[0].stato, 'official');
+  const tolto = post({ codice: 'segreto', azione: 'rimuoviAlias', dati: { password: 'admin-prova', chiave: 'BELTA|MELTA' } });
+  assert.deepEqual(tolto.righe.map((x) => x.chiave), ['ZORROTV|ZTV']);
+  assert.equal(post({ codice: 'segreto', azione: 'approvaAlias', dati: { password: 'admin-prova', chiave: 'NESSUNO|X' } }).errore, 'unknown alias');
+});

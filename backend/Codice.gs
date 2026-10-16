@@ -1,5 +1,5 @@
 /**
- * Playlist Check — script Google: storico dei controlli, mail dei refusi/alias confermati, destinatari.
+ * Playlist Check — script Google: storico dei controlli, mail dei refusi/alias confermati, destinatari, alias approvati.
  *
  * Va incollato nell'editor Apps Script di un Google Sheet (Estensioni → Apps Script) e pubblicato come
  * applicazione web ("Esegui come: me", "Chi ha accesso: chiunque"). Proprietà dello script:
@@ -14,6 +14,9 @@ var FINESTRA_TENTATIVI_MS = 15 * 60 * 1000; // …in 15 minuti, poi si aspetta
 var CAMPI_CONTROLLO = ['idControllo', 'dataControllo', 'dataEvento', 'partita', 'casa', 'ospite', 'venue', 'fileExcel', 'fileAir',
   'celle', 'corrette', 'errori', 'refusiTrovati', 'confermati', 'respinti', 'avvisi'];
 var EMAIL = /^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/;
+// Foglio Aliases: coppie confermate nei controlli (proposed) e approvate in Settings (official). chiave = NOMEEXCEL|CHIAVEAIR
+var CAMPI_ALIAS = ['chiave', 'excel', 'air', 'tipo', 'stato', 'volte', 'ultimaData', 'ultimaPartita', 'approvatoIl'];
+var CHIAVE_ALIAS = /^[A-Z0-9]+\|[A-Z0-9]+$/;
 // Campi testo che Google Sheets trasformerebbe in date (con lo slittamento del fuso orario): si salvano con l'apostrofo.
 var CAMPI_DATA = ['dataControllo', 'dataEvento'];
 
@@ -60,6 +63,10 @@ function gestisci(r) {
     case 'salvaDestinatari': return verificaAdmin(p, dati.password) || salvaDestinatari(dati.indirizzi);
     case 'inviaRefusi': return inviaRefusi(p, dati);
     case 'mailDiProva': return verificaAdmin(p, dati.password) || mailDiProva(p);
+    case 'alias': return { ok: true, righe: righeAlias() };
+    case 'proponiAlias': return proponiAlias(dati);
+    case 'approvaAlias': return verificaAdmin(p, dati.password) || approvaAlias(dati.chiave);
+    case 'rimuoviAlias': return verificaAdmin(p, dati.password) || rimuoviAlias(dati.chiave);
     default: return { ok: false, errore: 'unknown action' };
   }
 }
@@ -134,16 +141,68 @@ function salvaControllo(d) {
   return { ok: true };
 }
 
-function elencoControlli() {
-  var valori = foglio('Checks', CAMPI_CONTROLLO).getDataRange().getValues();
-  return valori.slice(1).map(function (r) {
+// Righe di un foglio come oggetti (senza intestazione), con le date in ISO e senza l'apostrofo dei testi.
+function oggetti(f, campi) {
+  return f.getDataRange().getValues().slice(1).map(function (r) {
     var o = {};
-    CAMPI_CONTROLLO.forEach(function (c, i) {
+    campi.forEach(function (c, i) {
       var v = r[i] instanceof Date ? r[i].toISOString() : r[i];
       o[c] = typeof v === 'string' && v.charAt(0) === "'" ? v.slice(1) : v;
     });
     return o;
   });
+}
+
+function elencoControlli() {
+  return oggetti(foglio('Checks', CAMPI_CONTROLLO), CAMPI_CONTROLLO);
+}
+
+// ---------- alias ----------
+function righeAlias() {
+  return oggetti(foglio('Aliases', CAMPI_ALIAS), CAMPI_ALIAS);
+}
+
+// Numero di riga (da 1) dell'alias con questa chiave; -1 se non c'è.
+function rigaAlias(f, chiave) {
+  var valori = f.getDataRange().getValues();
+  for (var i = 1; i < valori.length; i++) if (String(valori[i][0]) === String(chiave)) return i + 1;
+  return -1;
+}
+
+// Coppie confermate in un controllo: nuove → proposte; già presenti → contate (uno stato official resta official).
+function proponiAlias(d) {
+  var coppie = (d && d.coppie) || [];
+  if (coppie.some(function (c) { return !CHIAVE_ALIAS.test(String(c && c.chiave)); })) return { ok: false, errore: 'invalid alias' };
+  var f = foglio('Aliases', CAMPI_ALIAS);
+  var adesso = "'" + new Date().toISOString();
+  var partita = comeTesto(String(d.partita || ''));
+  coppie.forEach(function (c) {
+    var riga = rigaAlias(f, c.chiave);
+    if (riga > 0) {
+      var volte = Number(f.getDataRange().getValues()[riga - 1][5]) || 0;
+      f.getRange(riga, 6, 1, 3).setValues([[volte + 1, adesso, partita]]);
+    } else {
+      f.appendRow([c.chiave, comeTesto(String(c.excel || '')), comeTesto(String(c.air || '')), comeTesto(String(c.tipo || '')), 'proposed', 1, adesso, partita, '']);
+    }
+  });
+  return { ok: true, righe: righeAlias() };
+}
+
+function approvaAlias(chiave) {
+  var f = foglio('Aliases', CAMPI_ALIAS);
+  var riga = rigaAlias(f, chiave);
+  if (riga < 0) return { ok: false, errore: 'unknown alias' };
+  f.getRange(riga, 5, 1, 1).setValues([['official']]);
+  f.getRange(riga, 9, 1, 1).setValues([["'" + new Date().toISOString()]]);
+  return { ok: true, righe: righeAlias() };
+}
+
+function rimuoviAlias(chiave) {
+  var f = foglio('Aliases', CAMPI_ALIAS);
+  var riga = rigaAlias(f, chiave);
+  if (riga < 0) return { ok: false, errore: 'unknown alias' };
+  f.deleteRow(riga);
+  return { ok: true, righe: righeAlias() };
 }
 
 function destinatari() {
@@ -188,7 +247,7 @@ function inviaRefusi(p, d) {
     return '<tr>' + [c.tipo, c.feed, c.segmento, c.id, c.colonna, c.excel, c.air].map(function (v) { return '<td ' + celle + '>' + esc(v) + '</td>'; }).join('') + '</tr>';
   }).join('');
   var html = '<p>These names were confirmed as the same brand during a Playlist Check of <b>' + esc(d.partita) + '</b>. '
-    + 'If they are right, ask for them to be added to the official aliases.</p>'
+    + 'If they are right, an admin can make them official in Playlist Check → Settings → Aliases.</p>'
     + '<table style="border-collapse:collapse;font-family:Arial,sans-serif;font-size:13px"><tr>'
     + ['Type', 'Feed', 'Segment', 'ID', 'Column', 'Excel', 'AIR'].map(function (h) { return '<th ' + celle + '>' + h + '</th>'; }).join('')
     + '</tr>' + righe + '</table>';

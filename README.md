@@ -11,18 +11,20 @@ L'interfaccia è in inglese britannico; codice, commenti e questo README sono in
    - **New check** svuota le due aree. Dopo un controllo concluso, anche il primo file caricato apre una coppia nuova: un file nuovo non viene mai confrontato con quello della partita precedente.
    - **Summary**: partita, evento dello zip, feed e segmenti trovati; avviso se Excel e zip sembrano di partite diverse.
    - **Banner**: verde *All clear*, giallo *N to confirm*, rosso *N errors*.
-   - **To confirm**: nomi quasi uguali (*Possible typo*) o che puntano sempre allo stesso brand sconosciuto (*Possible alias*). *Confirm* li conta come corretti; *Not a typo / Not an alias* come errori. Quando ogni coppia ha una risposta, i refusi confermati partono via mail ai destinatari impostati in Settings.
+   - **To confirm**: nomi quasi uguali (*Possible typo*) o che puntano sempre allo stesso brand sconosciuto (*Possible alias*). *Confirm* li conta come corretti; *Not a typo / Not an alias* come errori. Quando ogni coppia ha una risposta, i refusi confermati partono via mail ai destinatari impostati in Settings e finiscono tra gli alias *in attesa* di Settings. Una conferma vale solo per quel controllo: la coppia viene chiesta di nuovo finché un admin non la rende ufficiale.
    - **Results**: un rigo per gruppo (tipo, feed, segmento, colonna Excel, atteso, trovato) con gli ID; filtri per feed e per tipo.
    - **Name variants**: stesso brand scritto in modo diverso, contato come corretto ed elencato per controllo.
    - **Download report**: Excel con *Summary* e *Findings* (una riga per risultato).
 3. Scheda **Statistics**: storico dei controlli (solo numeri), filtri per periodo, squadra e partita, *First check per match only*, export in Excel.
    - Se Excel e zip sembrano di due partite diverse (squadre del titolo Excel diverse da quelle dell'evento AIR), il controllo non va nello storico e la mail dei refusi non parte.
-4. Scheda **Settings**: destinatari della mail dei refusi; per modificarli serve la **password admin** (dopo 5 tentativi sbagliati in 15 minuti bisogna aspettare).
+4. Scheda **Settings** (visibile a tutti, modifiche con la **password admin**; dopo 5 tentativi sbagliati in 15 minuti bisogna aspettare):
+   - **Recipients**: destinatari della mail dei refusi.
+   - **Aliases**: le coppie confermate nei controlli (*Waiting for approval*); *Make official* le fa contare come corrette in ogni controllo successivo, per tutti, senza ripubblicare il sito; *Dismiss* e *Remove* le tolgono. In fondo, l'elenco degli alias cifrati nelle regole.
 
 ## Privacy
 
 - I due file si leggono **solo nel browser**: non vengono mai caricati su un server.
-- Allo script Google arrivano solo i **numeri** del controllo (celle, errori, refusi…) e, per i refusi/alias confermati, partita, feed, segmento, ID, colonna e i due nomi.
+- Allo script Google arrivano solo i **numeri** del controllo (celle, errori, refusi…) e, per i refusi/alias confermati, partita, feed, segmento, ID, colonna e i due nomi. Gli alias approvati in Settings stanno nel foglio Google (tab *Aliases*).
 - La pagina ha una Content-Security-Policy: carica solo i propri file e si collega solo allo script Google.
 - Le regole delicate (alias ufficiali, zone a regola fissa, indirizzo e codice dello script) sono **cifrate** con la password del team (AES-256-GCM, chiave PBKDF2-SHA256 con 600.000 iterazioni) in `regole/regole.js`.
 
@@ -38,7 +40,9 @@ L'interfaccia è in inglese britannico; codice, commenti e questo README sono in
 
 Le righe Excel si abbinano agli slot **per posizione** (lo slot 0 delle partite è il lead-in), non per numero di ID.
 
-## Aggiornare le regole (alias ufficiali)
+## Aggiornare le regole cifrate (alias di base, zone a regola fissa, script)
+
+Gli alias nuovi si approvano da Settings → Aliases, senza toccare le regole cifrate. Le regole cifrate servono per gli alias di base e per il resto della configurazione.
 
 Le regole in chiaro stanno solo in locale (`regole-sorgente/regole.json`, mai pubblicato). Dopo una modifica:
 
