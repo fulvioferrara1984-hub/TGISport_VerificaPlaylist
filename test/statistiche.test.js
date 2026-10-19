@@ -36,7 +36,15 @@ test('totali', () => {
 test('export Excel delle righe filtrate', () => {
   const wb = XLSX.read(esporta(filtra(RIGHE, { soloPrimo: true }), XLSX), { type: 'array' });
   const righe = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1 });
-  assert.deepEqual(righe[0], ['Checked on', 'Match date', 'Match', 'Home', 'Away', 'Venue', 'Excel playlist', 'AIR package', 'Cells', 'Correct', 'Errors', 'Typos/aliases found', 'Confirmed', 'Rejected', 'Warnings']);
+  assert.deepEqual(righe[0], ['Checked on', 'Match date', 'Match', 'Home', 'Away', 'Venue', 'Excel playlist', 'Package', 'Cells', 'Correct', 'Errors', 'Typos/aliases found', 'Confirmed', 'Rejected', 'Warnings', 'System']);
+  assert.equal(righe[1][15], 'Hub');
   assert.equal(righe.length, 4);
   assert.deepEqual(righe[1].slice(0, 3), ['2026-10-12 11:00', '2026-10-12', 'ALFA - BETA']); // ora italiana
+});
+
+test('statistiche separate per sistema: i controlli senza sistema (precedenti al Vault) sono dell\'Hub', () => {
+  const tutte = RIGHE.concat([r('v1', '2026-10-19T09:00:00Z', 'ZETA - ETA', '2026-10-21', 0, { sistema: 'Vault' }), r('h9', '2026-10-19T10:00:00Z', 'ETA - ZETA', '2026-10-22', 1, { sistema: 'Hub' })]);
+  assert.deepEqual(filtra(tutte, { sistema: 'Vault' }).map((x) => x.idControllo), ['v1']);
+  assert.deepEqual(filtra(tutte, { sistema: 'Hub' }).map((x) => x.idControllo), ['a2', 'a1', 'g1', 'd1', 'h9']);
+  assert.equal(filtra(tutte, {}).length, 6);
 });

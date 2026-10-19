@@ -74,33 +74,10 @@
   }
 
   // AIR package completo. Si legge il contenuto dei soli .hdm: dei media (mp4, png, mov) serve solo l'elenco dei nomi.
-  // Durata in secondi di un video mp4/mov, dal box mvhd dentro moov (che può stare anche in fondo al file); null se non si trova.
+  // Durata in secondi di un video mp4/mov (normale o frammentato); null se non si legge.
   function durataVideo(b) {
-    try {
-      const dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
-      const tipo = (i) => String.fromCharCode(b[i], b[i + 1], b[i + 2], b[i + 3]);
-      // primo box del tipo cercato tra "da" e "a": [inizio del contenuto, fine]
-      const cerca = (da, a, cercato) => {
-        for (let i = da; i + 8 <= a;) {
-          let dim = dv.getUint32(i);
-          let testa = 8;
-          if (dim === 1) { dim = dv.getUint32(i + 8) * 2 ** 32 + dv.getUint32(i + 12); testa = 16; } else if (dim === 0) dim = a - i;
-          if (dim < testa) return null;
-          if (tipo(i + 4) === cercato) return [i + testa, Math.min(i + dim, a)];
-          i += dim;
-        }
-        return null;
-      };
-      const moov = cerca(0, b.length, 'moov');
-      const mvhd = moov && cerca(moov[0], moov[1], 'mvhd');
-      if (!mvhd) return null;
-      const p = mvhd[0];
-      const ts = dv.getUint32(p + (b[p] === 1 ? 20 : 12));
-      const durata = b[p] === 1 ? dv.getUint32(p + 24) * 2 ** 32 + dv.getUint32(p + 28) : dv.getUint32(p + 16);
-      return ts ? durata / ts : null;
-    } catch (e) {
-      return null;
-    }
+    const v = dip('video').infoVideo(b);
+    return v ? v.secondi : null;
   }
 
   async function leggiAir(dati, JSZip) {

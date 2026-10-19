@@ -7,7 +7,7 @@
   <title>Playlist Check · TGI Sport</title>
   <link rel="icon" type="image/png" href="app/favicon.png">
   <link rel="apple-touch-icon" href="app/favicon-180.png">
-  <link rel="stylesheet" href="app/stile.css?v=14">
+  <link rel="stylesheet" href="app/stile.css?v=15">
 </head>
 <body>
   <header class="testata">
@@ -40,7 +40,7 @@
   <main>
     <section class="vista" id="vista-check">
       <h1>Check a playlist</h1>
-      <p class="sottotitolo">Drop the Excel playlist and the AIR package of the same match. Both files are read in this browser only and never uploaded.</p>
+      <p class="sottotitolo">Drop the Excel playlist and the package of the same match: an AIR package from the Hub or a Vault package, recognised automatically. Both files are read in this browser only and never uploaded.</p>
 
       <div class="caricamenti">
         <label class="carica" id="carica-excel" data-tipo="excel">
@@ -51,7 +51,7 @@
         </label>
         <label class="carica" id="carica-air" data-tipo="air">
           <input type="file" accept=".zip" hidden>
-          <span class="carica-titolo">AIR package <small>(.zip)</small></span>
+          <span class="carica-titolo">Package <small>(.zip, Hub or Vault)</small></span>
           <span class="carica-file">Drop the file here or click to choose it</span>
           <span class="carica-errore" role="alert" hidden></span>
         </label>
@@ -104,6 +104,7 @@
       <h1>Statistics</h1>
       <p class="sottotitolo">History of every check: numbers only, no files.</p>
       <section class="scheda filtri">
+        <label class="campo"><span>System</span><select id="stat-sistema"><option value="Hub">Hub</option><option value="Vault">Vault</option></select></label>
         <label class="campo"><span>From (match date)</span><input type="date" id="stat-da"></label>
         <label class="campo"><span>To</span><input type="date" id="stat-a"></label>
         <label class="campo"><span>Team</span><select id="stat-squadra"><option value="">All teams</option></select></label>
@@ -184,24 +185,27 @@
 
   <script src="lib/jszip.min.js"></script>
   <script src="lib/xlsx.full.min.js"></script>
-  <script src="regole/regole.js?v=14"></script>
-  <script src="app/nomi.js?v=14"></script>
-  <script src="app/zone.js?v=14"></script>
-  <script src="app/lettura-air.js?v=14"></script>
-  <script src="app/lettura-excel.js?v=14"></script>
-  <script src="app/confronto-virtual.js?v=14"></script>
-  <script src="app/confronto-statici.js?v=14"></script>
-  <script src="app/confronto.js?v=14"></script>
-  <script src="app/report.js?v=14"></script>
-  <script src="app/cifratura.js?v=14"></script>
-  <script src="app/regole.js?v=14"></script>
-  <script src="app/archivio.js?v=14"></script>
-  <script src="app/accesso.js?v=14"></script>
-  <script src="app/servizio.js?v=14"></script>
-  <script src="app/alias.js?v=14"></script>
-  <script src="app/statistiche.js?v=14"></script>
-  <script src="app/impostazioni.js?v=14"></script>
-  <script src="app/check.js?v=14"></script>
-  <script src="app/app.js?v=14"></script>
+  <script src="regole/regole.js?v=15"></script>
+  <script src="app/nomi.js?v=15"></script>
+  <script src="app/zone.js?v=15"></script>
+  <script src="app/video.js?v=15"></script>
+  <script src="app/lettura-air.js?v=15"></script>
+  <script src="app/lettura-excel.js?v=15"></script>
+  <script src="app/confronto-virtual.js?v=15"></script>
+  <script src="app/confronto-statici.js?v=15"></script>
+  <script src="app/confronto.js?v=15"></script>
+  <script src="app/lettura-vault.js?v=15"></script>
+  <script src="app/confronto-vault.js?v=15"></script>
+  <script src="app/report.js?v=15"></script>
+  <script src="app/cifratura.js?v=15"></script>
+  <script src="app/regole.js?v=15"></script>
+  <script src="app/archivio.js?v=15"></script>
+  <script src="app/accesso.js?v=15"></script>
+  <script src="app/servizio.js?v=15"></script>
+  <script src="app/alias.js?v=15"></script>
+  <script src="app/statistiche.js?v=15"></script>
+  <script src="app/impostazioni.js?v=15"></script>
+  <script src="app/check.js?v=15"></script>
+  <script src="app/app.js?v=15"></script>
 </body>
 </html>

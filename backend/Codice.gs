@@ -12,7 +12,7 @@ var LIMITE_MAIL_ORA = 20;
 var LIMITE_TENTATIVI_ADMIN = 5; // password admin sbagliate…
 var FINESTRA_TENTATIVI_MS = 15 * 60 * 1000; // …in 15 minuti, poi si aspetta
 var CAMPI_CONTROLLO = ['idControllo', 'dataControllo', 'dataEvento', 'partita', 'casa', 'ospite', 'venue', 'fileExcel', 'fileAir',
-  'celle', 'corrette', 'errori', 'refusiTrovati', 'confermati', 'respinti', 'avvisi'];
+  'celle', 'corrette', 'errori', 'refusiTrovati', 'confermati', 'respinti', 'avvisi', 'sistema'];
 var EMAIL = /^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/;
 // Foglio Aliases: coppie confermate nei controlli (proposed) e approvate in Settings (official). chiave = NOMEEXCEL|CHIAVEAIR
 var CAMPI_ALIAS = ['chiave', 'excel', 'air', 'tipo', 'stato', 'volte', 'ultimaData', 'ultimaPartita', 'approvatoIl'];
@@ -126,6 +126,9 @@ function foglio(nome, intestazione) {
 function salvaControllo(d) {
   if (!d || !d.idControllo) return { ok: false, errore: 'missing idControllo' };
   var f = foglio('Checks', CAMPI_CONTROLLO);
+  // un foglio di prima, con meno colonne, prende l'intestazione nuova (es. sistema Hub/Vault)
+  var testa = f.getDataRange().getValues()[0] || [];
+  if (testa.length < CAMPI_CONTROLLO.length) f.getRange(1, 1, 1, CAMPI_CONTROLLO.length).setValues([CAMPI_CONTROLLO]);
   var riga = CAMPI_CONTROLLO.map(function (c) {
     var v = d[c] === undefined || d[c] === null ? '' : d[c];
     return CAMPI_DATA.indexOf(c) >= 0 && v !== '' ? "'" + v : comeTesto(v);
@@ -146,7 +149,7 @@ function oggetti(f, campi) {
   return f.getDataRange().getValues().slice(1).map(function (r) {
     var o = {};
     campi.forEach(function (c, i) {
-      var v = r[i] instanceof Date ? r[i].toISOString() : r[i];
+      var v = r[i] instanceof Date ? r[i].toISOString() : r[i] === undefined ? '' : r[i];
       o[c] = typeof v === 'string' && v.charAt(0) === "'" ? v.slice(1) : v;
     });
     return o;

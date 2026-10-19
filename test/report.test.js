@@ -73,7 +73,7 @@ test('conteggi del controllo per lo storico (solo numeri)', () => {
   ultimo.coppie = coppieDaConfermare(esiti);
   assert.deepEqual(conteggiControllo(ultimo), { celle: 100, corrette: 96, errori: 3, refusiTrovati: 3, confermati: 2, respinti: 1, avvisi: 2 });
   assert.deepEqual(rigaControllo(ultimo), { idControllo: 'c1', dataControllo: '2026-10-15T10:00:00Z', dataEvento: '2026-10-12', partita: 'ALFA - BETA', casa: 'ALFA', ospite: 'BETA',
-    venue: 'Stadio Prova', fileExcel: 'p.xlsx', fileAir: 'a.zip', celle: 100, corrette: 96, errori: 3, refusiTrovati: 3, confermati: 2, respinti: 1, avvisi: 2 });
+    venue: 'Stadio Prova', fileExcel: 'p.xlsx', fileAir: 'a.zip', celle: 100, corrette: 96, errori: 3, refusiTrovati: 3, confermati: 2, respinti: 1, avvisi: 2, sistema: 'Hub' });
 });
 
 test('coppie confermate per la mail', () => {
@@ -104,4 +104,19 @@ test('coppie di partite diverse: fuori dallo storico e dalla mail', () => {
   const { coppiaGiusta } = require('../app/report.js');
   assert.equal(coppiaGiusta({ riepilogo: { partiteDiverse: false } }), true);
   assert.equal(coppiaGiusta({ riepilogo: { partiteDiverse: true } }), false);
+});
+
+test('durate in un\'altra colonna (Vault, colonna E): un gruppo per feed come quelle dell\'Hub', () => {
+  const d = (id, riga) => ({ tipo: 'Warning', feed: 'Dark Market', segmento: '1st Half', id, colonna: `E${riga} · Duration`, zona: '-', atteso: '00:10:00', trovato: '20 s' });
+  const g = raggruppa([d(136, 144), d(136, 280)].map((e, i) => ({ ...e, segmento: i ? '2nd Half' : '1st Half' })).concat([d(135, 143)]));
+  assert.deepEqual(g.map((x) => [x.segmento, x.colonna, x.conta]), [['1st Half', 'E · Duration', 2], ['2nd Half', 'E280 · Duration', 1]]);
+});
+
+test('sistema nello storico e nel report: Hub se non è indicato, Vault per i pacchetti del Vault', () => {
+  const { rigaControllo } = require('../app/report.js');
+  const base = { idControllo: 'v1', dataControllo: '2026-10-19T10:00:00Z', nomiFile: { excel: 'v.xlsx', air: 'v.zip' }, risposte: new Map(), coppie: [] };
+  assert.equal(rigaControllo({ ...base, risultatoOriginale: { celle: 4, esiti: [], riepilogo: { partita: 'A v B', sistema: 'Vault' } } }).sistema, 'Vault');
+  const risultato = { celle: 4, esiti: [], riepilogo: { partita: 'A v B', venue: 'Stadio', dataEvento: '2026-10-21', conteggi: {}, sistema: 'Vault' } };
+  const s = XLSX.utils.sheet_to_json(XLSX.read(esportaExcel(risultato, { excel: 'v.xlsx', air: 'v.zip' }, XLSX), { type: 'array' }).Sheets.Summary, { header: 1 });
+  assert.deepEqual(s.slice(4, 7), [['Vault package', 'v.zip'], ['Cells checked', 4], ['System', 'Vault']]);
 });

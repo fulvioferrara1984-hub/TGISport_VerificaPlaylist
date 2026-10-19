@@ -77,12 +77,7 @@
     return esiti.map((e) => (candidato(e) && probabili.has(nomi.k(nomi.senzaCodici(e.atteso))) ? { ...e, tipo: 'Possible alias' } : e));
   }
 
-  // Un video sta nello slot se lo slot dura un numero intero di volte il video (gira 1, 2… volte), con mezzo secondo di tolleranza:
-  // un 15" in uno slot da 30 va bene, in uno da 10 no; un 10" in uno slot da 15 no.
-  function staNelloSlot(video, slot) {
-    const volte = Math.round(slot / video);
-    return volte >= 1 && Math.abs(slot - volte * video) <= 0.5;
-  }
+  const { staNelloSlot } = dip('video');
   const secondi = (x) => `${Number(x.toFixed(2))} s`;
 
   // excel: da letturaExcel.leggiExcel; air: da letturaAir.leggiAir; regole: { alias, zoneSponsor: { prefisso, etichetta, DOM, FE, altri } }.
@@ -169,6 +164,9 @@
         venue: ev.venue, dataEvento: ev.data, evento: ev.nome,
         partiteDiverse: Boolean(sqExcel && sqEv && (sqExcel[0] !== sqEv[0] || sqExcel[1] !== sqEv[1])),
         conteggi,
+        sistema: 'Hub',
+        feed: air.stream.map((s) => s.nome),
+        segmenti: [...new Set(air.stream.flatMap((s) => s.segmenti.map((g) => g.nome)))],
       },
     };
   }

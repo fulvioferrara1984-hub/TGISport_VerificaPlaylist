@@ -1,6 +1,11 @@
 # Playlist Check · TGI Sport
 
-Pagina web che confronta la **playlist Excel** di una partita con l'**AIR package** (`.zip`) generato da quella playlist, e dice se e dove differiscono. L'Excel comanda: ogni differenza è un errore dello zip, salvo i casi in cui l'Excel stesso è incoerente.
+Pagina web che confronta la **playlist Excel** di una partita con il **pacchetto** (`.zip`) generato da quella playlist, e dice se e dove differiscono. Funziona con due sistemi, riconosciuti da soli dal contenuto dei file:
+
+- **Hub**: Excel con il foglio PLAYLIST e **AIR package** (`event.hdm`, sequenze `.hdm`, `advertisements/`);
+- **Vault**: Excel con un foglio per feed (*Slot · Clock · Time Phase · Time Phase Slot · Duration* e, per ogni zona, *File Name* e *Partner/Shared*) e pacchetto con `project.json`, `playlists/*.json` e `assets/`.
+
+L'Excel comanda: ogni differenza è un errore del pacchetto, salvo i casi in cui l'Excel stesso è incoerente.
 
 L'interfaccia è in inglese britannico; codice, commenti e questo README sono in italiano.
 
@@ -9,13 +14,13 @@ L'interfaccia è in inglese britannico; codice, commenti e questo README sono in
 1. Aprire il sito e inserire la **password del team** di Playlist Check. Con *Remember on this device* non la chiede più su quel computer; *Sign out* la dimentica.
 2. Scheda **Check**: trascinare l'Excel e lo zip della stessa partita (o cliccare sulle due aree). Il controllo parte da solo.
    - **New check** svuota le due aree. Dopo un controllo concluso, anche il primo file caricato apre una coppia nuova: un file nuovo non viene mai confrontato con quello della partita precedente.
-   - **Summary**: partita, evento dello zip, feed e segmenti trovati; avviso se Excel e zip sembrano di partite diverse.
+   - **Summary**: partita, sistema (Hub o Vault), evento/progetto dello zip, feed e segmenti (fasi nel Vault); avviso se Excel e zip sembrano di partite diverse. Un Excel di un sistema con lo zip dell'altro non si confronta (messaggio).
    - **Banner**: verde *All clear*, giallo *N to confirm*, rosso *N errors*.
    - **To confirm**: nomi quasi uguali (*Possible typo*) o che puntano sempre allo stesso brand sconosciuto (*Possible alias*). *Confirm* li conta come corretti; *Not a typo / Not an alias* come errori. Quando ogni coppia ha una risposta, i refusi confermati partono via mail ai destinatari impostati in Settings e finiscono tra gli alias *in attesa* di Settings. Una conferma vale solo per quel controllo: la coppia viene chiesta di nuovo finché un admin non la rende ufficiale.
    - **Results**: un rigo per gruppo (tipo, feed, segmento, colonna Excel, atteso, trovato) con gli ID; filtri per feed e per tipo.
    - **Name variants**: stesso brand scritto in modo diverso, contato come corretto ed elencato per controllo.
    - **Download report**: Excel con *Summary* e *Findings* (una riga per risultato).
-3. Scheda **Statistics**: storico dei controlli (solo numeri), filtri per periodo, squadra e partita, *First check per match only*, export in Excel.
+3. Scheda **Statistics**: storico dei controlli (solo numeri), **separato tra Hub e Vault** (selettore *System*; i controlli di prima del Vault sono dell'Hub), filtri per periodo, squadra e partita, *First check per match only*, export in Excel.
    - Se Excel e zip sembrano di due partite diverse (squadre del titolo Excel diverse da quelle dell'evento AIR), il controllo non va nello storico e la mail dei refusi non parte.
 4. Scheda **Settings** (visibile a tutti, modifiche con la **password admin**; dopo 5 tentativi sbagliati in 15 minuti bisogna aspettare):
    - **Recipients**: destinatari della mail dei refusi.
@@ -40,6 +45,14 @@ L'interfaccia è in inglese britannico; codice, commenti e questo README sono in
 
 Le righe Excel si abbinano agli slot **per posizione** (lo slot 0 delle partite è il lead-in), non per numero di ID.
 
+### Vault
+
+- Ogni foglio dell'Excel con l'intestazione Vault è un **feed**, abbinato allo stream del pacchetto con lo stesso nome; un foglio o uno stream senza l'altro è un errore.
+- La riga *Time Phase* + *Time Phase Slot* n va con l'n-esimo intervallo della playlist di quella fase; nei risultati l'ID è **fase e slot** (es. 1st Half, 5).
+- Per ogni zona (Left, Center, Right… il Center come le altre) il **nome del file** deve essere quello dell'Excel; *Not Applicable* vuol dire nessun asset. Un **partner** diverso dal publisher dell'asset è un avviso.
+- Durata di ogni slot (colonna Duration), slot contigui, asset presenti in `assets/`, video che stanno nel loro slot (i `.mov` del Vault sono frammentati: durata e fotogrammi al secondo si leggono dai frammenti).
+- **Variante del pacchetto**: se lo zip ha fasi che l'Excel non descrive (es. Half-time, Post-match), quelle fasi, il pre-match *Not Applicable* con contenuti, gli slot in più e l'ultimo slot di una fase con un'altra durata sono **avvisi** (*package variant*), non errori.
+
 ## Aggiornare le regole cifrate (alias di base, zone a regola fissa, script)
 
 Gli alias nuovi si approvano da Settings → Aliases, senza toccare le regole cifrate. Le regole cifrate servono per gli alias di base e per il resto della configurazione.
@@ -57,7 +70,7 @@ La password del team sta solo in locale in `regole-sorgente/password.txt` (prima
 | Percorso | Contenuto |
 |---|---|
 | `index.html` | pagina unica (Check / Statistics / Settings) |
-| `app/` | moduli: lettura Excel e AIR, confronto, report, cifratura, accesso, schede |
+| `app/` | moduli: lettura Excel e AIR (Hub), lettura e confronto Vault, video, confronto, report, cifratura, accesso, schede |
 | `lib/` | JSZip 3.10.1 e SheetJS 0.20.3 (copiati, nessun CDN) |
 | `regole/regole.js` | regole cifrate |
 | `backend/` | script Google (`Codice.gs`, `appsscript.json`) |
@@ -76,3 +89,5 @@ Con le coppie reali in locale (cartella con una sottocartella per squadra, e i r
 ```bash
 PC_COPPIE=~/Desktop/VerificaPlaylist node --test 'test/*.test.js'
 ```
+
+Per le coppie reali del Vault: `PC_VAULT=<cartella con una sottocartella per partita>` e i risultati di riferimento in `test/dati-locali/attesi-vault.json`.

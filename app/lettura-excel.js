@@ -149,5 +149,5 @@
     return out;
   }
 
-  return { NOME: 'letturaExcel', regione, tipoFoglio, leggiExcel };
+  return { NOME: 'letturaExcel', regione, tipoFoglio, durata, leggiExcel };
 });

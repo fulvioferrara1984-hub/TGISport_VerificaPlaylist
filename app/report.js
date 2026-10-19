@@ -18,14 +18,15 @@
     : typeof a === 'number' ? -1 : typeof b === 'number' ? 1 : String(a).localeCompare(String(b), 'en', { numeric: true }));
 
   // Una riga per (tipo, feed, segmento, colonna, atteso, trovato), con ID e zone; prima i tipi più gravi.
-  // Le durate sbagliate (colonna "C<riga> · Duration") stanno in un solo gruppo per feed, segmento e durata trovata.
-  const DURATA = /^C\d+ · Duration$/;
+  // Le durate sbagliate ("<colonna><riga> · Duration": C nell'Hub, E nel Vault) stanno in un solo gruppo per feed, segmento e durata trovata.
+  const DURATA = /^([A-Z]+)\d+ · Duration$/;
 
   function raggruppa(esiti) {
     const gruppi = new Map();
     for (const e of esiti) {
-      const durata = DURATA.test(e.colonna);
-      const chiave = [e.tipo, e.feed, e.segmento, durata ? 'C · Duration' : e.colonna, durata ? '' : e.atteso, e.trovato].join('\u0001');
+      const durata = DURATA.exec(e.colonna);
+      const colonnaGruppo = durata ? `${durata[1]} · Duration` : e.colonna;
+      const chiave = [e.tipo, e.feed, e.segmento, colonnaGruppo, durata ? '' : e.atteso, e.trovato].join('\u0001');
       if (!gruppi.has(chiave)) {
         gruppi.set(chiave, { tipo: e.tipo, feed: e.feed, segmento: e.segmento, colonna: e.colonna, atteso: e.atteso, trovato: e.trovato, zone: [], ids: [], conta: 0, attesi: [] });
       }
@@ -33,7 +34,7 @@
       if (!g.zone.includes(e.zona)) g.zone.push(e.zona);
       if (!g.ids.includes(e.id)) g.ids.push(e.id);
       if (!g.attesi.includes(e.atteso)) g.attesi.push(e.atteso);
-      if (g.colonna !== e.colonna) g.colonna = 'C · Duration';
+      if (g.colonna !== e.colonna) g.colonna = colonnaGruppo;
       g.conta++;
     }
     const lista = [...gruppi.values()];
@@ -116,7 +117,7 @@
     const r = ultimo.risultatoOriginale.riepilogo;
     return {
       idControllo: ultimo.idControllo, dataControllo: ultimo.dataControllo, dataEvento: r.dataEvento, partita: r.partita, casa: r.casa, ospite: r.ospite,
-      venue: r.venue, fileExcel: ultimo.nomiFile.excel, fileAir: ultimo.nomiFile.air, ...conteggiControllo(ultimo),
+      venue: r.venue, fileExcel: ultimo.nomiFile.excel, fileAir: ultimo.nomiFile.air, ...conteggiControllo(ultimo), sistema: r.sistema || 'Hub',
     };
   }
 
@@ -132,8 +133,9 @@
   function esportaExcel(risultato, nomiFile, XLSX) {
     const r = risultato.riepilogo;
     const conteggi = r.conteggi || {};
-    const riassunto = [['Match', r.partita], ['Venue', r.venue], ['Event date', r.dataEvento], ['Excel playlist', nomiFile.excel], ['AIR package', nomiFile.air],
-      ['Cells checked', risultato.celle]].concat(ORDINE.filter((t) => conteggi[t]).map((t) => [t, conteggi[t]]));
+    const sistema = r.sistema || 'Hub';
+    const riassunto = [['Match', r.partita], ['Venue', r.venue], ['Event date', r.dataEvento], ['Excel playlist', nomiFile.excel],
+      [sistema === 'Vault' ? 'Vault package' : 'AIR package', nomiFile.air], ['Cells checked', risultato.celle], ['System', sistema]].concat(ORDINE.filter((t) => conteggi[t]).map((t) => [t, conteggi[t]]));
     const righe = risultato.esiti.filter((e) => e.tipo !== 'Correct' && e.tipo !== 'Variant')
       .map((e) => [e.tipo, e.feed, e.segmento, e.id, e.colonna, e.zona, e.atteso, e.trovato]);
     const wb = XLSX.utils.book_new();

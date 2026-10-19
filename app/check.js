@@ -48,6 +48,22 @@
     $('btn-nuovo').hidden = true;
   }
 
+  // Hub o Vault: si riconosce dal contenuto dei file.
+  function leggiFileExcel(buffer) {
+    return PC.letturaVault.leggiExcelVault(buffer, window.XLSX) || PC.letturaExcel.leggiExcel(buffer, window.XLSX);
+  }
+
+  async function leggiFileZip(buffer) {
+    const vault = await PC.letturaVault.leggiZipVault(buffer, window.JSZip);
+    if (vault) return vault;
+    try {
+      return await PC.letturaAir.leggiAir(buffer, window.JSZip);
+    } catch (e) {
+      if (/event\.hdm not found/.test(e.message)) throw new Error('This is neither an AIR package (Hub) nor a Vault package: no event.hdm or project.json found.');
+      throw e;
+    }
+  }
+
   // Ogni file va nell'area giusta in base all'estensione, anche se trascinato nell'altra.
   async function carica(files, areaPreferita) {
     if (coppiaChiusa) nuovoControllo();
@@ -67,9 +83,9 @@
       mostraFile(tipo, f.name + ' · reading…');
       try {
         const buffer = await f.arrayBuffer();
-        const dati = tipo === 'excel' ? PC.letturaExcel.leggiExcel(buffer, window.XLSX) : await PC.letturaAir.leggiAir(buffer, window.JSZip);
+        const dati = tipo === 'excel' ? leggiFileExcel(buffer) : await leggiFileZip(buffer);
         stato[tipo] = { file: f, dati };
-        mostraFile(tipo, f.name, 'pronto');
+        mostraFile(tipo, `${f.name} · ${dati.sistema || 'Hub'}`, 'pronto');
       } catch (e) {
         stato[tipo] = null;
         mostraFile(tipo, f.name);
@@ -83,10 +99,18 @@
 
   function esegui() {
     $('check-stato').hidden = false;
+    const sistemaExcel = stato.excel.dati.sistema || 'Hub';
+    const sistemaZip = stato.air.dati.sistema || 'Hub';
+    if (sistemaExcel !== sistemaZip) {
+      $('check-stato').textContent = `These files come from different systems: the Excel is a ${sistemaExcel} playlist and the package comes from the ${sistemaZip}. Load the Excel and the package of the same match, from the same system.`;
+      return;
+    }
     $('check-stato').textContent = 'Checking…';
     setTimeout(() => {
       try {
-        const risultato = PC.confronto.verifica(stato.excel.dati, stato.air.dati, PC.alias.regoleCon(PC.app.regole));
+        const risultato = sistemaExcel === 'Vault'
+          ? PC.confrontoVault.verificaVault(stato.excel.dati, stato.air.dati)
+          : PC.confronto.verifica(stato.excel.dati, stato.air.dati, PC.alias.regoleCon(PC.app.regole));
         ultimo = {
           idControllo: crypto.randomUUID(),
           dataControllo: new Date().toISOString(),
@@ -110,17 +134,16 @@
 
   function disegnaRiepilogo() {
     const r = ultimo.risultato.riepilogo;
-    const air = stato.air.dati;
-    const feed = air.stream.map((s) => s.nome);
-    const segmenti = [...new Set(air.stream.flatMap((s) => s.segmenti.map((g) => g.nome)))];
+    const vault = r.sistema === 'Vault';
     const box = $('check-riepilogo');
     box.replaceChildren(el('h2', {}, 'Summary'), el('dl', {},
       el('dt', {}, 'Match'), el('dd', {}, r.partita),
-      el('dt', {}, 'AIR event'), el('dd', {}, [r.evento, r.dataEvento, r.venue].filter(Boolean).join(' · ')),
-      el('dt', {}, 'Feeds'), el('dd', {}, feed.join(', ')),
-      el('dt', {}, 'Segments'), el('dd', {}, segmenti.join(', ')),
+      el('dt', {}, 'System'), el('dd', {}, vault ? 'Vault' : 'Hub (AIR package)'),
+      el('dt', {}, vault ? 'Vault project' : 'AIR event'), el('dd', {}, [r.evento, r.dataEvento, r.venue].filter(Boolean).join(' · ')),
+      el('dt', {}, 'Feeds'), el('dd', {}, (r.feed || []).join(', ')),
+      el('dt', {}, vault ? 'Phases' : 'Segments'), el('dd', {}, (r.segmenti || []).join(', ')),
       el('dt', {}, 'Cells checked'), el('dd', {}, ultimo.risultato.celle.toLocaleString('en-GB'))));
-    if (r.partiteDiverse) box.appendChild(el('p', { class: 'errore' }, 'Excel and AIR package seem to be different matches: check that you loaded the right pair.'));
+    if (r.partiteDiverse) box.appendChild(el('p', { class: 'errore' }, 'Excel and package seem to be different matches: check that you loaded the right pair.'));
   }
 
   function disegnaBanner() {
@@ -229,7 +252,7 @@
     }
   }
 
-  const PARTITE_DIVERSE = 'Excel and AIR package seem to be different matches';
+  const PARTITE_DIVERSE = 'Excel and package seem to be different matches';
 
   async function salvaStorico() {
     const questo = ultimo;

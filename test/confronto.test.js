@@ -208,3 +208,9 @@ test('video che non sta nello slot: errore; se ci sta un numero intero di volte 
     { tipo: 'Error', id: 3, colonna: '-', zona: 'FULL PERIMETER', atteso: 'video fitting a 15 s slot', trovato: 'BETA_GC1 · 10 s' },
   ]);
 });
+
+test('riepilogo dell’Hub: sistema, feed e segmenti (mostrati come quelli del Vault)', () => {
+  const { excel, air } = modello({ righe: ['ALFA'], slot: [A('ALFA')] });
+  const r = verifica(excel, air, REGOLE).riepilogo;
+  assert.deepEqual([r.sistema, r.feed, r.segmenti], ['Hub', ['Europa'], ['Pre Match - Post Match', '1st Half - 2nd Half', 'Highlights']]);
+});

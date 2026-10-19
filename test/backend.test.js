@@ -176,3 +176,13 @@ test('alias: approvare e togliere solo con la password admin', () => {
   assert.deepEqual(tolto.righe.map((x) => x.chiave), ['ZORROTV|ZTV']);
   assert.equal(post({ codice: 'segreto', azione: 'approvaAlias', dati: { password: 'admin-prova', chiave: 'NESSUNO|X' } }).errore, 'unknown alias');
 });
+
+test('storico: colonna sistema (Hub/Vault); un foglio Checks di prima prende la nuova intestazione', () => {
+  const campi = ['idControllo', 'dataControllo', 'dataEvento', 'partita', 'casa', 'ospite', 'venue', 'fileExcel', 'fileAir', 'celle', 'corrette', 'errori', 'refusiTrovati', 'confermati', 'respinti', 'avvisi'];
+  const vecchia = campi.map((c) => controllo('h0')[c]);
+  const { post, fogli } = carica({ proprieta: BASE, fogli: { Checks: [campi.slice(), vecchia] } });
+  post({ codice: 'segreto', azione: 'salvaControllo', dati: controllo('v1', { sistema: 'Vault' }) });
+  assert.deepEqual([...fogli.Checks[0]], campi.concat('sistema'));
+  const righe = post({ codice: 'segreto', azione: 'elencoControlli' }).righe;
+  assert.deepEqual(righe.map((x) => [x.idControllo, x.sistema]), [['h0', ''], ['v1', 'Vault']]);
+});

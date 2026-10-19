@@ -51,6 +51,30 @@ function mp4(secondi, { versione = 0, moovInFondo = false, timescale = 600 } = {
   return new Uint8Array(Buffer.concat(parti));
 }
 
+// Video frammentato (come quelli del Vault): moov senza durata, i fotogrammi nei frammenti moof (tfhd con durata predefinita).
+function mp4Frammentato(fotogrammi, fps, { frammenti = 4, timescale = fps * 256 } = {}) { // come i file veri: 256 unità per fotogramma
+  const box = (tipo, ...parti) => {
+    const corpo = Buffer.concat(parti.map((x) => Buffer.from(x)));
+    const b = Buffer.alloc(8 + corpo.length);
+    b.writeUInt32BE(b.length, 0); b.write(tipo, 4, 'latin1'); corpo.copy(b, 8);
+    return b;
+  };
+  const u32 = (...v) => { const b = Buffer.alloc(4 * v.length); v.forEach((x, i) => b.writeUInt32BE(x, 4 * i)); return b; };
+  const durata = Math.round(timescale / fps);
+  const mvhd = Buffer.alloc(100); mvhd.writeUInt32BE(1000, 12);
+  const tkhd = Buffer.alloc(84); tkhd.writeUInt32BE(1, 12);
+  const mdhd = Buffer.alloc(24); mdhd.writeUInt32BE(timescale, 12);
+  const hdlr = Buffer.concat([u32(0, 0), Buffer.from('vide'), Buffer.alloc(13)]);
+  const moov = box('moov', box('mvhd', mvhd), box('trak', box('tkhd', tkhd), box('mdia', box('mdhd', mdhd), box('hdlr', hdlr))),
+    box('mvex', box('trex', u32(0, 1, 1, 0, 0, 0))));
+  const parti = [box('ftyp', Buffer.from('qt  0000')), moov];
+  for (let f = 0; f < frammenti; f++) {
+    const n = Math.floor(fotogrammi / frammenti) + (f < fotogrammi % frammenti ? 1 : 0);
+    parti.push(box('moof', box('traf', box('tfhd', u32(0x08, 1, durata)), box('trun', u32(0, n)))), box('mdat', Buffer.alloc(16)));
+  }
+  return new Uint8Array(Buffer.concat(parti));
+}
+
 // AIR package come ArrayBuffer: { cartella, evento, sequenze: { 'sequences/x.hdm': testo }, media: [nome | [nome, byte]] }
 async function zipAir(JSZip, { cartella = '20261012_alfa-beta', evento, sequenze = {}, media = [] }) {
   const z = new JSZip();
@@ -71,4 +95,4 @@ async function spiaLetture(JSZip, dati) {
   return { letti, ripristina: () => { proto.async = originale; } };
 }
 
-module.exports = { hdmSequenza, hdmEvento, mp4, zipAir, spiaLetture };
+module.exports = { hdmSequenza, hdmEvento, mp4, mp4Frammentato, zipAir, spiaLetture };

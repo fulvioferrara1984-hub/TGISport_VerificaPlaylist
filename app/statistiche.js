@@ -20,9 +20,10 @@
 
   const dataPartita = (r) => String(r.dataEvento || r.dataControllo || '').slice(0, 10);
 
-  // filtri: { da, a (YYYY-MM-DD, data della partita, inclusi), squadra, partita, soloPrimo }
+  // filtri: { sistema (Hub | Vault), da, a (YYYY-MM-DD, data della partita, inclusi), squadra, partita, soloPrimo }
   function filtra(righe, filtri = {}) {
     let out = righe.slice();
+    if (filtri.sistema) out = out.filter((r) => (r.sistema || 'Hub') === filtri.sistema); // i controlli di prima del Vault sono dell'Hub
     if (filtri.soloPrimo) {
       const primo = new Map();
       out.forEach((r) => {
@@ -47,9 +48,10 @@
 
   const COLONNE = [
     ['Checked on', (r) => quando(r.dataControllo)], ['Match date', dataPartita], ['Match', (r) => r.partita], ['Home', (r) => r.casa], ['Away', (r) => r.ospite],
-    ['Venue', (r) => r.venue], ['Excel playlist', (r) => r.fileExcel], ['AIR package', (r) => r.fileAir], ['Cells', (r) => Number(r.celle) || 0],
+    ['Venue', (r) => r.venue], ['Excel playlist', (r) => r.fileExcel], ['Package', (r) => r.fileAir], ['Cells', (r) => Number(r.celle) || 0],
     ['Correct', (r) => Number(r.corrette) || 0], ['Errors', (r) => Number(r.errori) || 0], ['Typos/aliases found', (r) => Number(r.refusiTrovati) || 0],
     ['Confirmed', (r) => Number(r.confermati) || 0], ['Rejected', (r) => Number(r.respinti) || 0], ['Warnings', (r) => Number(r.avvisi) || 0],
+    ['System', (r) => r.sistema || 'Hub'],
   ];
 
   function esporta(righe, XLSX) {
@@ -64,12 +66,12 @@
     const $ = (id) => document.getElementById(id);
     let righe = null;
 
-    const filtri = () => ({ da: $('stat-da').value, a: $('stat-a').value, squadra: $('stat-squadra').value, partita: $('stat-partita').value.trim(), soloPrimo: $('stat-primo').checked });
+    const filtri = () => ({ sistema: $('stat-sistema').value, da: $('stat-da').value, a: $('stat-a').value, squadra: $('stat-squadra').value, partita: $('stat-partita').value.trim(), soloPrimo: $('stat-primo').checked });
 
     function disegna() {
       if (!righe) return;
       const scelte = filtri();
-      const squadre = [...new Set(righe.flatMap((r) => [r.casa, r.ospite]).filter(Boolean))].sort();
+      const squadre = [...new Set(filtra(righe, { sistema: scelte.sistema }).flatMap((r) => [r.casa, r.ospite]).filter(Boolean))].sort();
       const sel = $('stat-squadra');
       const prima = sel.value;
       sel.replaceChildren(new Option('All teams', ''), ...squadre.map((s) => new Option(s, s)));
@@ -88,7 +90,7 @@
       }));
       $('stat-vuota').hidden = filtrate.length > 0;
       $('stat-esporta').disabled = !filtrate.length;
-      $('stat-esporta').onclick = () => PC.archivio.scarica('Playlist Check – statistics.xlsx',
+      $('stat-esporta').onclick = () => PC.archivio.scarica(`Playlist Check – statistics (${scelte.sistema}).xlsx`,
         new Blob([esporta(filtrate, radice.XLSX)], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
     }
 
@@ -111,7 +113,7 @@
       disegna();
     }
 
-    ['stat-da', 'stat-a', 'stat-squadra', 'stat-partita', 'stat-primo'].forEach((id) => $(id).addEventListener('input', disegna));
+    ['stat-sistema', 'stat-da', 'stat-a', 'stat-squadra', 'stat-partita', 'stat-primo'].forEach((id) => $(id).addEventListener('input', disegna));
     document.addEventListener('pc:vista', (e) => { if (e.detail === 'statistics') carica(); });
   }
 
