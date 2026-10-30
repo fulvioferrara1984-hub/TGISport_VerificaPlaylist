@@ -29,9 +29,17 @@
     return null;
   }
 
+  // Tempo scritto nel titolo del foglio (cella A3): "… 1ST HALF" → MATCH1, "… 2ND HALF" → MATCH2; null se non lo dice.
+  function tempoDalTitolo(titolo) {
+    const t = k(titolo);
+    if (/(1ST|FIRST)HALF/.test(t)) return 'MATCH1';
+    if (/(2ND|SECOND)HALF/.test(t)) return 'MATCH2';
+    return null;
+  }
+
   const due = (n) => String(n).padStart(2, '0');
 
-  // Durata della colonna C: valore Excel (frazione di giorno) → ms, e testo come lo mostra Excel (hh:mm:ss, senza i giorni).
+  // Durata della colonna C: valore Excel (frazione di giorno) o testo hh:mm:ss / mm:ss → ms, e testo hh:mm:ss (senza i giorni).
   function durata(v) {
     if (typeof v === 'number') {
       const ms = Math.round(v * 86400000);
@@ -40,6 +48,12 @@
     }
     const m = /^(\d+):(\d\d):(\d\d)$/.exec(String(v == null ? '' : v).trim());
     if (m) return { durataMs: (Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3])) * 1000, durataTesto: `${due(m[1])}:${m[2]}:${m[3]}` };
+    // testo minuti:secondi ("00:15", come la colonna MINUTO GARA accanto)
+    const ms = /^(\d+):(\d\d)$/.exec(String(v == null ? '' : v).trim());
+    if (ms) {
+      const s = Number(ms[1]) * 60 + Number(ms[2]);
+      return { durataMs: s * 1000, durataTesto: `${due(Math.floor(s / 3600))}:${due(Math.floor(s / 60) % 60)}:${due(s % 60)}` };
+    }
     return { durataMs: null, durataTesto: v == null ? '' : String(v) };
   }
 
@@ -127,7 +141,14 @@
     }
     const partite = {};
     for (const n of wb.SheetNames) {
-      const t = tipoFoglio(n);
+      let t = tipoFoglio(n);
+      // un foglio PLAYLIST, o con un nome che non dice niente (es. "G"), con la colonna ID e il tempo nel titolo è quel tempo
+      const altro = !t && !k(n).includes('STATIC') && !k(n).startsWith('HL') && !k(n).includes('HIGHLIGHT');
+      if (t === 'MATCH' || altro) {
+        const { valore } = lettore(wb.Sheets[n], XLSX);
+        const tempo = rigaID(valore) >= 0 ? tempoDalTitolo(valore(2, 0)) : null;
+        if (tempo) t = tempo;
+      }
       if (t && !partite[t]) partite[t] = { nome: n };
     }
     if (!Object.keys(partite).length) throw new Error('This Excel file has no PLAYLIST sheet.');

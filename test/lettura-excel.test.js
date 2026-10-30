@@ -96,3 +96,25 @@ test('ID non numerici: la riga resta al suo posto con un avviso; le righe di not
   assert.equal(righe[2].valori.get('EU|1'), 'GAMMA');
   assert.deepEqual(x.avvisi, [{ foglio: 'PLAYLIST', riga: 8, id: '3a' }]);
 });
+
+test('tempi separati riconosciuti dal titolo quando il nome del foglio non lo dice (PLAYLIST = 1° tempo, "G" = 2° tempo)', () => {
+  const wb = XLSX.read(cartella({ fogli: ['1ST HALF', '2ND HALF'], righe: [[1, 15, 'ALFA']] }), { type: 'array' });
+  [['1ST HALF', 'PLAYLIST'], ['2ND HALF', 'G']].forEach(([vecchio, nuovo]) => {
+    wb.SheetNames[wb.SheetNames.indexOf(vecchio)] = nuovo;
+    wb.Sheets[nuovo] = wb.Sheets[vecchio];
+    delete wb.Sheets[vecchio];
+  });
+  const x = leggiExcel(XLSX.write(wb, { type: 'array', bookType: 'xlsx' }), XLSX);
+  assert.deepEqual(Object.keys(x.partite).sort(), ['MATCH1', 'MATCH2']);
+  assert.equal(x.partite.MATCH1.foglio, 'PLAYLIST');
+  assert.equal(x.partite.MATCH2.foglio, 'G');
+  assert.equal(x.hl.foglio, 'HL PLAYLIST');
+  assert.equal(x.titolo, 'ALFA - BETA 1ST HALF');
+});
+
+test('durata scritta come testo minuti:secondi ("00:15") oltre che ore:minuti:secondi', () => {
+  const { durata } = require('../app/lettura-excel.js');
+  assert.deepEqual(durata('00:15'), { durataMs: 15000, durataTesto: '00:00:15' });
+  assert.deepEqual(durata(' 01:30 '), { durataMs: 90000, durataTesto: '00:01:30' });
+  assert.deepEqual(durata('00:00:20'), { durataMs: 20000, durataTesto: '00:00:20' });
+});
