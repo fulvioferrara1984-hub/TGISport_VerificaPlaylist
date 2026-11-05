@@ -2,7 +2,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { librerie } = require('./aiuto.js');
-const { hdmSequenza, hdmEvento, mp4, zipAir, spiaLetture } = require('./fixture-air.js');
+const { hdmSequenza, hdmEvento, mp4, zipAir, spiaLetture, png } = require('./fixture-air.js');
 const { parseSequenza, parseEvento, regioniStream, leggiAir } = require('../app/lettura-air.js');
 
 const { JSZip } = librerie();
@@ -87,7 +87,7 @@ test('file .hdm con a capo di Windows (CRLF), come quelli veri', () => {
   assert.equal(iv[0].mappe.get(0).file, '../advertisements/5_casa_alfa_1.mp4');
 });
 
-test('leggiAir: durata dei video usati (box mvhd, anche versione 1 o in fondo al file); immagini e video non usati non si leggono', async () => {
+test('leggiAir: durata dei video usati (box mvhd, anche versione 1 o in fondo al file); i media non usati non si leggono', async () => {
   const ads = { 10: ['ALFA_GC1', 'CASA_ALFA_1', '../advertisements/5_alfa.mp4'], 11: ['BETA_GC1', 'CASA_BETA_1', '../advertisements/6_beta.mp4'],
     12: ['GAMMA_GC1', 'CASA_GAMMA_1', '../advertisements/7_gamma.mov'], 13: ['Blank_Generic', 'Blank_Generic', '../advertisements/1503_blank_generic.png'] };
   const evento = hdmEvento({ stream: [['Europa', [['1st Half - 2nd Half', 'sequences/e.hdm']]]] });
@@ -99,8 +99,20 @@ test('leggiAir: durata dei video usati (box mvhd, anche versione 1 o in fondo al
   try {
     const air = await leggiAir(dati, JSZip);
     assert.deepEqual([...air.durateMedia].sort(), [['5_alfa.mp4', 15], ['6_beta.mp4', 10], ['7_gamma.mov', 30]]);
-    assert.ok(!spia.letti.some((p) => p.endsWith('.png') || p.endsWith('9_inutile.mp4')), spia.letti.join(', '));
+    assert.ok(!spia.letti.some((p) => p.endsWith('9_inutile.mp4')), spia.letti.join(', '));
   } finally {
     spia.ripristina();
   }
+});
+
+test('leggiAir: formato in pixel dei media usati, immagini comprese; i file che non si leggono restano fuori', async () => {
+  const ads = { 10: ['ALFA_JUMBO', 'CASA_ALFA_1', '../advertisements/5_alfa.mp4'], 11: ['BETA_GL1', 'CASA_BETA_1', '../advertisements/6_beta.png'],
+    12: ['GAMMA_GL1', 'CASA_GAMMA_1', '../advertisements/7_gamma.png'] };
+  const evento = hdmEvento({ stream: [['Europa', [['1st Half - 2nd Half', 'sequences/e.hdm']]]] });
+  const dati = await zipAir(JSZip, {
+    evento, sequenze: { 'sequences/e.hdm': hdmSequenza([{ inizio: 0, durata: 15000, mappe: [['10', [0]], ['11', [1]], ['12', [2]]] }], ads) },
+    media: [['5_alfa.mp4', mp4(15, { formato: [5130, 180] })], ['6_beta.png', png(3100, 90)], '7_gamma.png', ['9_inutile.png', png(10, 10)]],
+  });
+  const air = await leggiAir(dati, JSZip);
+  assert.deepEqual([...air.formatiMedia].sort(), [['5_alfa.mp4', { larghezza: 5130, altezza: 180 }], ['6_beta.png', { larghezza: 3100, altezza: 90 }]]);
 });

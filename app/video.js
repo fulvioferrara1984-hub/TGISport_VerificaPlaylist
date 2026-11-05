@@ -1,4 +1,4 @@
-/* Playlist Check — durata e fotogrammi al secondo dei video mp4/mov, letti dai box del file (senza riprodurlo). */
+/* Playlist Check — durata e fotogrammi al secondo dei video mp4/mov e formato in pixel dei media, letti dai file (senza riprodurli). */
 (function (radice, fabbrica) {
   const m = fabbrica(radice);
   if (typeof module === 'object' && module.exports) module.exports = m;
@@ -6,26 +6,32 @@
 })(typeof self !== 'undefined' ? self : globalThis, function () {
   'use strict';
 
+  // Lettura dei box di un file mp4/mov.
+  function scatole(b) {
+    const dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
+    const tipo = (i) => String.fromCharCode(b[i], b[i + 1], b[i + 2], b[i + 3]);
+    const figli = (da, a) => {
+      const out = [];
+      for (let i = da; i + 8 <= a;) {
+        let dim = dv.getUint32(i);
+        let testa = 8;
+        if (dim === 1) { dim = dv.getUint32(i + 8) * 2 ** 32 + dv.getUint32(i + 12); testa = 16; } else if (dim === 0) dim = a - i;
+        if (dim < testa) break;
+        out.push({ t: tipo(i + 4), p: i + testa, fine: Math.min(i + dim, a) });
+        i += dim;
+      }
+      return out;
+    };
+    return { dv, tipo, figli };
+  }
+  const uno = (lista, t) => lista.find((x) => x.t === t);
+
   // { secondi, fps?, fotogrammi? } oppure null se il file non è un video leggibile.
   // Video normale (Hub): durata dal box mvhd. Video frammentato (Vault): mvhd ha durata 0 e i fotogrammi stanno nei frammenti
   // moof → traf → trun, con la durata di ciascuno in trun, in tfhd o in trex; si conta la traccia video.
   function infoVideo(b) {
     try {
-      const dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
-      const tipo = (i) => String.fromCharCode(b[i], b[i + 1], b[i + 2], b[i + 3]);
-      const figli = (da, a) => {
-        const out = [];
-        for (let i = da; i + 8 <= a;) {
-          let dim = dv.getUint32(i);
-          let testa = 8;
-          if (dim === 1) { dim = dv.getUint32(i + 8) * 2 ** 32 + dv.getUint32(i + 12); testa = 16; } else if (dim === 0) dim = a - i;
-          if (dim < testa) break;
-          out.push({ t: tipo(i + 4), p: i + testa, fine: Math.min(i + dim, a) });
-          i += dim;
-        }
-        return out;
-      };
-      const uno = (lista, t) => lista.find((x) => x.t === t);
+      const { dv, tipo, figli } = scatole(b);
       const tempo = (p, v0, v1) => (b[p] === 1 ? dv.getUint32(p + v1) : dv.getUint32(p + v0)); // campo a 32 bit, posizione per versione 0/1
       const lungo = (p, v0, v1) => (b[p] === 1 ? dv.getUint32(p + v1) * 2 ** 32 + dv.getUint32(p + v1 + 4) : dv.getUint32(p + v0));
 
@@ -90,6 +96,28 @@
     }
   }
 
+  // { larghezza, altezza } in pixel di un png o della traccia video di un mp4/mov (box tkhd); null se non si leggono.
+  function formatoMedia(b) {
+    try {
+      const { dv, tipo, figli } = scatole(b);
+      if (b[0] === 0x89 && tipo(12) === 'IHDR') return { larghezza: dv.getUint32(16), altezza: dv.getUint32(20) };
+      const moov = uno(figli(0, b.length), 'moov');
+      if (!moov) return null;
+      for (const trak of figli(moov.p, moov.fine).filter((x) => x.t === 'trak')) {
+        const f = figli(trak.p, trak.fine);
+        const tkhd = uno(f, 'tkhd');
+        const mdia = uno(f, 'mdia');
+        const hdlr = mdia && uno(figli(mdia.p, mdia.fine), 'hdlr');
+        if (!tkhd || !hdlr || tipo(hdlr.p + 8) !== 'vide') continue;
+        const pos = tkhd.p + (b[tkhd.p] === 1 ? 88 : 76);
+        return { larghezza: Math.round(dv.getUint32(pos) / 65536), altezza: Math.round(dv.getUint32(pos + 4) / 65536) };
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
   // Un video sta nello slot se lo slot dura un numero intero di volte il video (gira 1, 2… volte), con mezzo secondo di tolleranza:
   // un 15" in uno slot da 30 va bene, in uno da 10 no; un 10" in uno slot da 15 no.
   function staNelloSlot(video, slot) {
@@ -97,5 +125,5 @@
     return volte >= 1 && Math.abs(slot - volte * video) <= 0.5;
   }
 
-  return { NOME: 'video', infoVideo, staNelloSlot };
+  return { NOME: 'video', infoVideo, formatoMedia, staNelloSlot };
 });

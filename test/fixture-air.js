@@ -33,8 +33,17 @@ function hdmEvento({ nome = 'ALFA-BETA', data = '2026-10-12', venue = 'Stadio Pr
   return t + '  }\n  \n  \n}\n';
 }
 
-// Video mp4 minimo con la sola durata (box moov/mvhd): versione 0 o 1 del box, moov prima o dopo i dati.
-function mp4(secondi, { versione = 0, moovInFondo = false, timescale = 600 } = {}) {
+// Testata di un png: basta a leggerne il formato.
+function png(larghezza, altezza) {
+  const b = Buffer.alloc(33);
+  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(b);
+  b.writeUInt32BE(13, 8); b.write('IHDR', 12, 'latin1'); b.writeUInt32BE(larghezza, 16); b.writeUInt32BE(altezza, 20);
+  return new Uint8Array(b);
+}
+
+// Video mp4 minimo con la durata (box moov/mvhd): versione 0 o 1 del box, moov prima o dopo i dati.
+// formato [larghezza, altezza]: aggiunge una traccia audio e una video (box tkhd, versione versioneTkhd).
+function mp4(secondi, { versione = 0, moovInFondo = false, timescale = 600, formato = null, versioneTkhd = 0 } = {}) {
   const box = (tipo, ...parti) => {
     const corpo = Buffer.concat(parti.map((x) => Buffer.from(x)));
     const b = Buffer.alloc(8 + corpo.length);
@@ -46,7 +55,16 @@ function mp4(secondi, { versione = 0, moovInFondo = false, timescale = 600 } = {
   mvhd[0] = versione;
   if (versione === 1) { mvhd.writeUInt32BE(timescale, 20); mvhd.writeUInt32BE(Math.floor(d / 2 ** 32), 24); mvhd.writeUInt32BE(d % 2 ** 32, 28); }
   else { mvhd.writeUInt32BE(timescale, 12); mvhd.writeUInt32BE(d, 16); }
-  const parti = [box('ftyp', Buffer.from('isom0000')), box('moov', box('mvhd', mvhd)), box('mdat', Buffer.alloc(64))];
+  const traccia = (gestore, [l, a]) => {
+    const tkhd = Buffer.alloc(versioneTkhd === 1 ? 96 : 84);
+    tkhd[0] = versioneTkhd;
+    const pos = versioneTkhd === 1 ? 88 : 76;
+    tkhd.writeUInt32BE(l * 65536, pos); tkhd.writeUInt32BE(a * 65536, pos + 4);
+    const hdlr = Buffer.alloc(24); hdlr.write(gestore, 8, 'latin1');
+    return box('trak', box('tkhd', tkhd), box('mdia', box('hdlr', hdlr)));
+  };
+  const tracce = formato ? [traccia('soun', [0, 0]), traccia('vide', formato)] : [];
+  const parti = [box('ftyp', Buffer.from('isom0000')), box('moov', box('mvhd', mvhd), ...tracce), box('mdat', Buffer.alloc(64))];
   if (moovInFondo) parti.push(parti.splice(1, 1)[0]);
   return new Uint8Array(Buffer.concat(parti));
 }
@@ -95,4 +113,4 @@ async function spiaLetture(JSZip, dati) {
   return { letti, ripristina: () => { proto.async = originale; } };
 }
 
-module.exports = { hdmSequenza, hdmEvento, mp4, mp4Frammentato, zipAir, spiaLetture };
+module.exports = { hdmSequenza, hdmEvento, png, mp4, mp4Frammentato, zipAir, spiaLetture };

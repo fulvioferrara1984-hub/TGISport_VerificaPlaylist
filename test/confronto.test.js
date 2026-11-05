@@ -209,6 +209,48 @@ test('video che non sta nello slot: errore; se ci sta un numero intero di volte 
   ]);
 });
 
+// Zona 0 JUMBO, 1 CC, 2 GL_SX_1: l'Excel chiede lo stesso brand su Jumbo e GL, quindi per il nome è tutto a posto.
+function modelloFormati(slotJumbo, slotGL) {
+  const { excel, air } = modello({ righe: slotJumbo.map(() => 'ALFA'), slot: slotJumbo });
+  air.zone = new Map([[0, 'JUMBO'], [1, 'CC'], [2, 'GL_SX_1']]);
+  air.stream[0].segmenti[1].intervalli.forEach((iv, i) => iv.mappe.set(2, i ? slotGL[i - 1] : BLANK));
+  air.formatiMedia = new Map([
+    ['1_alfa_gl1.mp4', { larghezza: 3100, altezza: 90 }], ['2_alfa_jumbo.mp4', { larghezza: 5130, altezza: 180 }],
+    ['1503_blank_generic.png', { larghezza: 2, altezza: 2 }], ['1356_circle_empty.png', { larghezza: 4, altezza: 4 }],
+  ]);
+  return { excel, air };
+}
+const G1 = art('ALFA_GL1', 'CASA_ALFA_1_J', '../advertisements/1_alfa_gl1.mp4');
+const J = art('ALFA_JUMBO', 'CASA_ALFA_1_J', '../advertisements/2_alfa_jumbo.mp4');
+const diFormato = (r) => breve(r.esiti.filter((e) => String(e.atteso).startsWith('artwork sized')));
+
+test('artwork della GL sulla Jumbo: errore anche se il brand è giusto', () => {
+  const { excel, air } = modelloFormati([J, J, G1], [G1, G1, G1]);
+  assert.deepEqual(diFormato(verifica(excel, air, REGOLE)), [
+    { tipo: 'Error', id: 3, colonna: '-', zona: 'JUMBO', atteso: 'artwork sized for JUMBO (5130×180)', trovato: 'ALFA_GL1 · 3100×90' },
+  ]);
+});
+
+test('artwork della Jumbo sulla GL: errore anche se il brand è giusto', () => {
+  const { excel, air } = modelloFormati([J, J, J], [G1, J, G1]);
+  assert.deepEqual(diFormato(verifica(excel, air, REGOLE)), [
+    { tipo: 'Error', id: 2, colonna: '-', zona: 'GL_SX_1', atteso: 'artwork sized for GL_SX_1 (3100×90)', trovato: 'ALFA_JUMBO · 5130×180' },
+  ]);
+});
+
+test('ogni artwork nella sua zona: nessun errore di formato, blank e centro campo compresi', () => {
+  const { excel, air } = modelloFormati([J, J, J], [G1, G1, G1]);
+  assert.deepEqual(diFormato(verifica(excel, air, REGOLE)), []);
+});
+
+test('formato che non si legge, o pacchetto senza formati: nessun errore di formato', () => {
+  const { excel, air } = modelloFormati([J, J, G1], [G1, G1, G1]);
+  air.formatiMedia.delete('1_alfa_gl1.mp4');
+  assert.deepEqual(diFormato(verifica(excel, air, REGOLE)), []);
+  delete air.formatiMedia;
+  assert.deepEqual(diFormato(verifica(excel, air, REGOLE)), []);
+});
+
 test('riepilogo dell’Hub: sistema, feed e segmenti (mostrati come quelli del Vault)', () => {
   const { excel, air } = modello({ righe: ['ALFA'], slot: [A('ALFA')] });
   const r = verifica(excel, air, REGOLE).riepilogo;

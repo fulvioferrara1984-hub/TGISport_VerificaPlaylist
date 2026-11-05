@@ -67,5 +67,36 @@
     return out;
   }
 
-  return { NOME: 'zone', MAT_ZONA, ruoloZona, filaSuffisso, filaArtwork, fileDelleZone };
+  // Blank e cerchio vuoto non sono artwork: non dicono niente sul formato di una zona.
+  const segnaposto = (a) => a.ad === 'Blank_Generic' || a.ad === 'Circle_Empty';
+
+  // Formato abituale di ogni zona: quello che occupa più slot nel pacchetto intero. → Map idZona → { larghezza, altezza }
+  function formatiDelleZone(stream, formati) {
+    const voti = new Map();
+    stream.forEach((s) => s.segmenti.forEach((seg) => (seg.intervalli || []).forEach((iv) => iv.mappe.forEach((a, z) => {
+      const f = !segnaposto(a) && formati.get(String(a.file).split('/').pop());
+      if (!f) return;
+      if (!voti.has(z)) voti.set(z, new Map());
+      const chiave = `${f.larghezza}x${f.altezza}`;
+      const v = voti.get(z).get(chiave) || { f, n: 0 };
+      v.n++;
+      voti.get(z).set(chiave, v);
+    }))));
+    const out = new Map();
+    voti.forEach((m, z) => out.set(z, [...m.values()].reduce((x, y) => (y.n > x.n ? y : x)).f));
+    return out;
+  }
+
+  const vicini = (x, y, scarto) => Math.max(x, y) <= Math.min(x, y) * scarto;
+  const stessoFormato = (f, g) => vicini(f.larghezza, g.larghezza, 1.005) && vicini(f.altezza, g.altezza, 1.005);
+
+  // L'artwork è fatto per un'altra zona se è alto tutt'altro rispetto a quelli della sua (es. 90 px contro 180), o se ha il formato
+  // abituale di un'altra zona e non quello della sua (zone alte uguali, es. GL e TL). Le piccole differenze di larghezza sono normali.
+  function fattoPerAltraZona(f, z, abituali) {
+    const propria = abituali.get(z);
+    if (!propria || stessoFormato(f, propria)) return false;
+    return !vicini(f.altezza, propria.altezza, 1.25) || [...abituali.values()].some((g) => stessoFormato(f, g));
+  }
+
+  return { NOME: 'zone', MAT_ZONA, ruoloZona, filaSuffisso, filaArtwork, fileDelleZone, segnaposto, formatiDelleZone, fattoPerAltraZona };
 });

@@ -12,7 +12,7 @@
   const nomi = dip('nomi');
   const { NOME_REG, controllaVirtual } = dip('confronto-virtual');
   const { attesiStatici, controllaStatici } = dip('confronto-statici');
-  const { ruoloZona, fileDelleZone } = dip('zone');
+  const { ruoloZona, fileDelleZone, segnaposto, formatiDelleZone, fattoPerAltraZona } = dip('zone');
 
   const NOMI_SEGMENTO = { PRE: 'Pre Match - Post Match', MATCH: '1st - 2nd Half', MATCH1: '1st Half', MATCH2: '2nd Half', HL: 'Highlights' };
 
@@ -79,6 +79,7 @@
 
   const { staNelloSlot } = dip('video');
   const secondi = (x) => `${Number(x.toFixed(2))} s`;
+  const pixel = (f) => `${f.larghezza}×${f.altezza}`;
 
   // excel: da letturaExcel.leggiExcel; air: da letturaAir.leggiAir; regole: { alias, zoneSponsor: { prefisso, etichetta, DOM, FE, altri } }.
   function verifica(excel, air, regole) {
@@ -93,6 +94,7 @@
       (z) => ruoloZona(air.zone.get(z), angoliStatici, c.prefissoSponsor).startsWith('LED'));
     // ogni risultato prende il numero della cella in controllo (null fuori dalle celle): serve a contare le celle corrette
     c.nota = (e) => esiti.push(c.cella ? { ...e, cella: c.cella } : e);
+    const abituali = air.formatiMedia ? formatiDelleZone(air.stream, air.formatiMedia) : new Map();
     const tabelle = Object.values(excel.partite).concat([excel.hl]);
     const nomiExcel = new Set();
     tabelle.forEach((t) => t.righe.forEach((r) => r.valori.forEach((v) => { if (v) nomiExcel.add(String(v).trim()); })));
@@ -143,6 +145,8 @@
             if (air.media && air.media.size && !air.media.has(file)) nota('Error', id, '-', air.zone.get(z), 'media file', 'missing ' + file);
             const video = air.durateMedia && air.durateMedia.get(file);
             if (video && !staNelloSlot(video, iv.durata / 1000)) nota('Error', id, '-', air.zone.get(z), `video fitting a ${secondi(iv.durata / 1000)} slot`, `${a.ad} · ${secondi(video)}`);
+            const formato = air.formatiMedia && !segnaposto(a) && air.formatiMedia.get(file);
+            if (formato && fattoPerAltraZona(formato, z, abituali)) nota('Error', id, '-', air.zone.get(z), `artwork sized for ${air.zone.get(z)} (${pixel(abituali.get(z))})`, `${a.ad} · ${pixel(formato)}`);
           });
         });
         if (tipo !== 'PRE') controllaVirtual(c, stream, seg, tipo, tipo === 'HL' ? excel.hl : excel.partite[tipo]);

@@ -73,13 +73,13 @@
     };
   }
 
-  // AIR package completo. Si legge il contenuto dei soli .hdm: dei media (mp4, png, mov) serve solo l'elenco dei nomi.
   // Durata in secondi di un video mp4/mov (normale o frammentato); null se non si legge.
   function durataVideo(b) {
     const v = dip('video').infoVideo(b);
     return v ? v.secondi : null;
   }
 
+  // AIR package completo. Si leggono i .hdm e, dei media, solo quelli usati nelle sequenze (durata dei video, formato in pixel).
   async function leggiAir(dati, JSZip) {
     let zip;
     try {
@@ -103,17 +103,22 @@
       }
       stream.push({ nome: s.nome, regioni: s.regioni, segmenti });
     }
-    // durata dei video usati nelle sequenze (servono a controllare che stiano nei loro slot); immagini e video non usati non si leggono
+    // durata dei video (devono stare nei loro slot) e formato di video e immagini (ogni artwork deve essere fatto per la sua zona)
     const usati = new Set();
     stream.forEach((s) => s.segmenti.forEach((g) => (g.intervalli || []).forEach((iv) => iv.mappe.forEach((a) => usati.add(String(a.file).split('/').pop())))));
     const durateMedia = new Map();
+    const formatiMedia = new Map();
     for (const nome of usati) {
       const voce = zip.files[radiceZip + 'advertisements/' + nome];
-      if (!/\.(mp4|mov|m4v)$/i.test(nome) || !voce || voce.dir) continue;
-      const durata = durataVideo(await voce.async('uint8array'));
+      if (!/\.(mp4|mov|m4v|png)$/i.test(nome) || !voce || voce.dir) continue;
+      const byte = await voce.async('uint8array');
+      const formato = dip('video').formatoMedia(byte);
+      if (formato) formatiMedia.set(nome, formato);
+      if (/\.png$/i.test(nome)) continue;
+      const durata = durataVideo(byte);
       if (durata) durateMedia.set(nome, durata);
     }
-    return { evento: { nome: evento.nome, data: evento.data, venue: evento.venue }, zone: evento.zone, stream, media, durateMedia };
+    return { evento: { nome: evento.nome, data: evento.data, venue: evento.venue }, zone: evento.zone, stream, media, durateMedia, formatiMedia };
   }
 
   return { NOME: 'letturaAir', regioniStream, parseSequenza, parseEvento, durataVideo, leggiAir };

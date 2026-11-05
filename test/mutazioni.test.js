@@ -92,13 +92,26 @@ test('errori inseriti apposta', { skip: pronto ? false : 'PC_COPPIE o regole-sor
     assert.ok(n.some((e) => e.feed === 'Europa' && e.id === m.prova.i));
   });
 
+  await prova('artwork di un’altra zona, stesso brand (il file del TL_2 sulla GL di seconda fila)', (m) => {
+    const iv = seg(m.air, 'Europa').intervalli[pos];
+    iv.mappe.set(idZona(m.air, 'GL_SX_2'), iv.mappe.get(idZona(m.air, 'TL_2')));
+  }, (n) => {
+    assert.equal(n.length, 1, JSON.stringify(n));
+    assert.deepEqual([n[0].tipo, n[0].feed, n[0].id, n[0].zona], ['Error', 'Europa', pos, 'GL_SX_2']);
+    assert.ok(n[0].atteso.startsWith('artwork sized for GL_SX_2'), n[0].atteso);
+  });
+
   await prova('file della fila sbagliata', (m) => {
     const iv = seg(m.air, 'Europa').intervalli[pos];
     zone2.forEach((z) => iv.mappe.set(idZona(m.air, z), iv.mappe.get(0)));
   }, (n) => {
-    assert.equal(n.length, 1);
-    assert.deepEqual([n[0].tipo, n[0].feed, n[0].id, n[0].colonna], ['Error', 'Europa', ID, colEU2]);
-    assert.match(n[0].trovato, /\(first-row file\)$/);
+    // il file di un'altra zona è anche fuori formato, in ognuna delle zone che lo ospitano
+    const formato = n.filter((e) => e.atteso.startsWith('artwork sized for'));
+    assert.deepEqual(formato.map((e) => e.zona).sort(), [...zone2].sort());
+    const resto = n.filter((e) => !formato.includes(e));
+    assert.equal(resto.length, 1);
+    assert.deepEqual([resto[0].tipo, resto[0].feed, resto[0].id, resto[0].colonna], ['Error', 'Europa', ID, colEU2]);
+    assert.match(resto[0].trovato, /\(first-row file\)$/);
   });
 
   await prova('durata sbagliata nell’Excel', (m) => {
@@ -152,7 +165,10 @@ test('errori inseriti apposta', { skip: pronto ? false : 'PC_COPPIE o regole-sor
     m.artCC = seg(m.air, 'Europa').intervalli[pos].mappe.get(0);
     iv.mappe.set(idZona(m.air, 'CC'), m.artCC);
   }, (n, m) => {
-    assert.deepEqual(n.map((e) => [e.tipo, e.feed, e.id, e.zona, e.atteso, e.trovato]), [['Error', 'Europa', 10, 'CC', 'Circle_Empty', m.artCC.ad]]);
+    // il file del perimetro sul centro campo è anche fuori formato
+    const formato = n.filter((e) => e.atteso.startsWith('artwork sized for CC'));
+    assert.deepEqual(formato.map((e) => [e.tipo, e.feed, e.id, e.zona]), [['Error', 'Europa', 10, 'CC']]);
+    assert.deepEqual(n.filter((e) => !formato.includes(e)).map((e) => [e.tipo, e.feed, e.id, e.zona, e.atteso, e.trovato]), [['Error', 'Europa', 10, 'CC', 'Circle_Empty', m.artCC.ad]]);
   });
 
   await prova('file media rimosso', (m) => {
