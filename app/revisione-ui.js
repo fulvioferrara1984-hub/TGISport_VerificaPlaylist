@@ -30,22 +30,55 @@
   const daDecidere = (s) => s.gruppi.some((g) => !stato.ultimo.risposteVisive.has(g.chiave));
 
   // ---------- scheda nei risultati ----------
-  function scheda(ultimo, alCambio) {
+  // stato della lettura automatica (lettura-automatica-ui.js) in una riga; vuota se non è partita
+  function testoLettura(ultimo, av) {
+    const l = ultimo.lettura;
+    if (!l) return '';
+    if (l.stato === 'in corso') return `Reading brand names in the animations… ${l.letti} of ${l.totale} files`;
+    if (l.stato === 'non disponibile') return 'Automatic brand reading is not available in this browser: review the groups by eye.';
+    return av.automatici
+      ? `Brand reading done: ${av.automatici} ${av.automatici === 1 ? 'group' : 'groups'} read automatically.`
+      : 'Brand reading done: no brand name could be read, review the groups by eye.';
+  }
+
+  // testi della scheda; "Start" finché non c'è una risposta data a mano
+  function testiScheda(ultimo) {
     const av = avanzamento(ultimo);
-    const iniziato = av.risposti > 0;
+    return {
+      avanzamento: av.risposti ? PC.revisione.testoAvanzamento(av) : PC.revisione.testoDaFare(av),
+      lettura: testoLettura(ultimo, av),
+      bottone: av.risposti > av.automatici ? 'Continue visual check' : 'Start visual check',
+    };
+  }
+
+  function scheda(ultimo, alCambio) {
+    const t = testiScheda(ultimo);
     return el('div', {},
       el('h2', {}, 'Visual check'),
       el('p', { class: 'nota' }, 'First the static assets, which stay the same for the whole match, then each slot with its LED rows: watch them next to the brand the Excel asks for and mark each group Correct or Wrong. Wrong groups are added to the results as errors. The files never leave this browser.'),
+      el('p', { class: 'nota' }, 'Meanwhile the page reads the brand names written in the animations: when it reads the brand the Excel asks for in every file of a group, the group is marked Correct by itself (read automatically). It confirms the brand, not its version, and you can still change it.'),
       el('div', { class: 'visivo-riga' },
-        el('span', { class: 'visivo-avanzamento' }, iniziato ? PC.revisione.testoAvanzamento(av) : PC.revisione.testoDaFare(av)),
-        bottone(iniziato ? 'Continue visual check' : 'Start visual check', 'primario', () => apri(ultimo, alCambio))));
+        el('span', { class: 'visivo-avanzamento' }, t.avanzamento),
+        bottone(t.bottone, 'primario visivo-apri', () => apri(ultimo, alCambio))),
+      el('p', { class: 'piccolo visivo-lettura' }, t.lettura));
+  }
+
+  // Dopo ogni file letto: testi della scheda (senza ridisegnarla) e gruppi della schermata aperta.
+  function aggiornaLettura(ultimo) {
+    const box = $('check-visivo');
+    const t = testiScheda(ultimo);
+    [['.visivo-avanzamento', t.avanzamento], ['.visivo-lettura', t.lettura], ['.visivo-apri', t.bottone]].forEach(([sel, testo]) => {
+      const n = box && box.querySelector(sel);
+      if (n) n.textContent = testo;
+    });
+    if (stato && stato.ultimo === ultimo) stato.aggiorna.forEach((f) => f());
   }
 
   // ---------- pannello ----------
   function apri(ultimo, alCambio) {
     if (!ultimo.schermate.length) return;
     chiudi();
-    stato = { ultimo, alCambio, indice: 0, url: [], giro: null };
+    stato = { ultimo, alCambio, indice: 0, url: [], giro: null, aggiorna: [] };
     const primo = ultimo.schermate.findIndex(daDecidere);
     stato.indice = primo >= 0 ? primo : 0;
     const p = $('revisione');
@@ -117,6 +150,7 @@
     libera();
     const giro = ++giri;
     stato.giro = giro;
+    stato.aggiorna = [];
     const lista = stato.ultimo.schermate;
     const s = lista[stato.indice];
     const avanz = el('span', { class: 'rev-avanzamento' }, testoTestata());
@@ -155,7 +189,9 @@
     const giusto = bottone('Correct', 'bottone', () => rispondi('correct'));
     const sbagliato = bottone('Wrong', 'bottone', () => rispondi('wrong'));
     const nota = el('input', { type: 'text', class: 'rev-nota', placeholder: 'What do you see? (optional)', 'aria-label': 'What do you see?' });
-    const sezione = el('section', { class: 'rev-gruppo' }, el('div', { class: 'rev-gruppo-testa' }, titolo(g), giusto, sbagliato));
+    const auto = el('span', { class: 'rev-auto' });
+    const sezione = el('section', { class: 'rev-gruppo' }, el('div', { class: 'rev-gruppo-testa' }, titolo(g), auto, giusto, sbagliato));
+    const lette = []; // etichetta "X read" di ogni zona, per le zone già lette di un gruppo non ancora deciso
     // per uno statico: dove va in onda (feed e segmenti), al posto delle etichette dello slot
     if (g.statico) sezione.appendChild(el('div', { class: 'rev-dove' }, ...PC.revisione.doveGruppo(g).map((d) => el('span', {}, `${d.feed.join(', ')} · ${d.segmenti.join(', ')}`))));
     sezione.appendChild(nota);
@@ -166,9 +202,16 @@
       giusto.classList.toggle('attivo', Boolean(r && r.esito === 'correct'));
       sbagliato.classList.toggle('attivo', Boolean(r && r.esito === 'wrong'));
       nota.hidden = !(r && r.esito === 'wrong');
-      nota.value = r && r.nota ? r.nota : '';
+      if (document.activeElement !== nota) nota.value = r && r.nota ? r.nota : '';
+      auto.hidden = !(r && r.auto);
+      auto.textContent = r && r.auto ? `Read automatically · ${r.auto}` : '';
+      const squadre = stato.ultimo.squadre || [];
+      const parola = PC.letturaAutomatica.parolaMarchio(g.atteso, squadre);
+      const zone = PC.letturaAutomatica.zoneLette(g, stato.ultimo.letture || new Map(), squadre);
+      lette.forEach((n, i) => { n.hidden = !zone[i] || Boolean(r && r.auto); n.textContent = zone[i] ? `${parola} read` : ''; });
       avanz.textContent = testoTestata();
     }
+    stato.aggiorna.push(aggiorna);
     function rispondi(esito) {
       const prima = risposte.get(g.chiave);
       risposte.set(g.chiave, { esito, nota: esito === 'wrong' && prima ? prima.nota : '' });
@@ -184,7 +227,9 @@
     });
     g.zone.forEach((z) => {
       const box = el('div', { class: 'rev-media' }, el('span', { class: 'rev-attesa' }, 'Loading…'));
-      sezione.appendChild(el('div', { class: 'rev-zona' }, el('span', { class: 'rev-nome' }, z.zona), box));
+      const letta = el('span', { class: 'rev-letto' });
+      lette.push(letta);
+      sezione.appendChild(el('div', { class: 'rev-zona' }, el('span', { class: 'rev-nome' }, z.zona, letta), box));
       video.push(caricaMedia(z.file, box, giro));
     });
     aggiorna();
@@ -243,5 +288,5 @@
     return v;
   }
 
-  PC.revisioneUi = { scheda, apri, chiudi };
+  PC.revisioneUi = { scheda, apri, chiudi, aggiornaLettura };
 })(window.PC = window.PC || {});

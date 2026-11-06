@@ -100,11 +100,11 @@ test('avanzamento e testi: statici contati a parte dagli slot', () => {
   const alfa = s[1].gruppi[0];
   const beta = s[2].gruppi[0];
   const vuoto = avanzamento(s, new Map());
-  assert.deepEqual(vuoto, { totale: 2, riviste: 0, sbagliati: 0, risposti: 0, statici: 2, staticiRisposti: 0 });
+  assert.deepEqual(vuoto, { totale: 2, riviste: 0, sbagliati: 0, risposti: 0, automatici: 0, statici: 2, staticiRisposti: 0 });
   assert.equal(testoAvanzamento(vuoto), 'not started');
   assert.equal(testoDaFare(vuoto), '2 slots and 2 static assets to review');
   const parte = avanzamento(s, risposte([delta.chiave, 'correct'], [gamma.chiave, 'wrong'], [alfa.chiave, 'correct']));
-  assert.deepEqual(parte, { totale: 2, riviste: 1, sbagliati: 1, risposti: 3, statici: 2, staticiRisposti: 2 });
+  assert.deepEqual(parte, { totale: 2, riviste: 1, sbagliati: 1, risposti: 3, automatici: 0, statici: 2, staticiRisposti: 2 });
   assert.equal(testoAvanzamento(parte), 'static assets 2 of 2 · 1 of 2 slots reviewed · 1 wrong');
   assert.equal(testoAvanzamento(avanzamento(s, risposte([beta.chiave, 'correct']))), 'static assets 0 of 2 · 1 of 2 slots reviewed · 0 wrong');
   const soloStatici = schermate([statico(1, 'CC', 'cc.png', 'DELTA', 'STATIC B3 · CENTRE CIRCLE')]);
@@ -116,6 +116,22 @@ test('avanzamento e testi: statici contati a parte dagli slot', () => {
   assert.deepEqual(schermate([]), []);
   assert.equal(testoAvanzamento(avanzamento([], new Map())), 'nothing to review');
   assert.equal(testoDaFare(avanzamento([], new Map())), 'nothing to review');
+});
+
+test('risposte automatiche (marchio letto): contate a parte, dette nel testo, nessuna riga Error', () => {
+  const s = schermate([
+    voce({ slot: 1, atteso: 'ALFA' }), statico(1, 'CC', 'cc.png', 'DELTA', 'STATIC B3 · CENTRE CIRCLE'), statico(1, 'CLUB_LSX', 'g1.png', 'GAMMA', 'STATIC B5 · CLUB MAT 1'),
+    voce({ slot: 2, atteso: 'BETA', zone: [['GL_SX_1', 'b.mp4']] }),
+  ]);
+  const [delta, gamma] = s[0].gruppi;
+  const alfa = s[1].gruppi[0];
+  const auto = (parola) => ({ esito: 'correct', nota: '', auto: parola });
+  const r = new Map([[delta.chiave, auto('DELTA')], [alfa.chiave, auto('ALFA')], [gamma.chiave, { esito: 'wrong', nota: '' }]]);
+  const av = avanzamento(s, r);
+  assert.equal(av.automatici, 2);
+  assert.equal(testoAvanzamento(av), 'static assets 2 of 2 · 1 of 2 slots reviewed · 2 read automatically · 1 wrong');
+  assert.equal(testoAvanzamento(avanzamento(s, new Map([[alfa.chiave, auto('ALFA')]]))), 'static assets 0 of 2 · 1 of 2 slots reviewed · 1 read automatically · 0 wrong');
+  assert.equal(esitiVisivi(s, r).length, gamma.usi.length);
 });
 
 test('doveGruppo: feed con gli stessi segmenti insieme, in ordine di apparizione', () => {

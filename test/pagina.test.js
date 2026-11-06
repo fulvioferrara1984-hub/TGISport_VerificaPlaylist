@@ -42,12 +42,12 @@ test('visual check: scheda, pannello e script nella pagina', () => {
   assert.ok(HTML.includes('id="revisione"'));
   assert.ok(HTML.indexOf('app/revisione.js') > HTML.indexOf('app/report.js'));
   assert.ok(HTML.indexOf('app/revisione-ui.js') < HTML.indexOf('app/check.js'));
-  assert.equal(/\?v=(?!20")/.test(HTML), false, 'versione diversa da 20');
+  assert.equal(/\?v=(?!21")/.test(HTML), false, 'versione diversa da 21');
 });
 
 test('grafica della Piattaforma: tema applicato nel <head> prima del CSS', () => {
   const testa = HTML.slice(0, HTML.indexOf('</head>'));
-  assert.ok(testa.includes('<script src="app/tema.js?v=20"></script>'), 'tema.js nel head');
+  assert.ok(testa.includes('<script src="app/tema.js?v=21"></script>'), 'tema.js nel head');
   assert.ok(testa.indexOf('app/tema.js') < testa.indexOf('app/stile.css'), 'tema.js prima del CSS');
 });
 
@@ -75,4 +75,20 @@ test('interruttore del tema nel menu e nella pagina di accesso; logo bianco e ne
 test('font e logo della grafica sono nel sito', () => {
   const radice = path.join(__dirname, '..');
   ['app/font/montserrat-latin.woff2', 'app/font/OFL.txt', 'Logo/TGI-Sport_white.png', 'Logo/TGI-Sport_black.png'].forEach((f) => assert.ok(fs.existsSync(path.join(radice, f)), f));
+});
+
+test('lettura automatica del marchio: moduli nella pagina, libreria caricata solo quando serve, worker dal sito', () => {
+  assert.ok(HTML.indexOf('app/lettura-automatica.js') > HTML.indexOf('app/nomi.js'));
+  assert.ok(HTML.indexOf('app/lettura-automatica.js') < HTML.indexOf('app/lettura-automatica-ui.js'));
+  assert.ok(HTML.indexOf('app/lettura-automatica-ui.js') < HTML.indexOf('app/check.js'));
+  assert.equal(/<script src="lib\/tesseract/.test(HTML), false, 'tesseract non si carica all\'apertura');
+  assert.deepEqual(politica().get('worker-src'), ["'self'"]);
+});
+
+test('lettura automatica: i file della libreria che lo script chiede sono nel sito, con licenza e origine', () => {
+  const radice = path.join(__dirname, '..');
+  const ui = fs.readFileSync(path.join(radice, 'app/lettura-automatica-ui.js'), 'utf8');
+  const chiesti = [...ui.matchAll(/'([a-z0-9.-]+\.(?:js|gz))'/g)].map((m) => m[1]);
+  assert.deepEqual(chiesti.sort(), ['tesseract-core-simd-lstm.wasm.js', 'tesseract.min.js', 'worker.min.js']);
+  chiesti.concat(['eng.traineddata.gz', 'LICENSE.md', 'ORIGINE.txt']).forEach((f) => assert.ok(fs.existsSync(path.join(radice, 'lib/tesseract', f)), f));
 });

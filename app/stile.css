@@ -366,3 +366,9 @@ body.con-pannello { overflow: hidden; }
   .revisione { padding: 8px; }
   .rev-zona { grid-template-columns: 1fr; gap: 4px; }
 }
+
+/* Lettura automatica del marchio nel visual check */
+.visivo-lettura { margin: 10px 0 0; color: var(--inchiostro-2); }
+.visivo-lettura:empty { display: none; }
+.rev-auto { padding: 2px 8px; border-radius: 999px; background: var(--ok-tenue); color: var(--ok); font-size: var(--t-12); font-weight: 700; white-space: nowrap; }
+.rev-letto { display: block; width: fit-content; margin-top: 4px; padding: 1px 6px; border-radius: 999px; background: var(--ok-tenue); color: var(--ok); font-size: 11px; font-weight: 700; }

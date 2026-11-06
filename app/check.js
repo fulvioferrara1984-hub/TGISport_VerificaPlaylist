@@ -41,6 +41,7 @@
     stato.air = null;
     ['excel', 'air'].forEach((tipo) => { mostraFile(tipo, testoIniziale[tipo]); erroreFile(tipo, ''); });
     PC.revisioneUi.chiudi();
+    PC.letturaAutomaticaUi.ferma();
     $('check-risultati').hidden = true;
     $('check-stato').hidden = true;
     ultimo = null;
@@ -72,6 +73,7 @@
     const aliasAggiornati = PC.alias.aggiorna(PC.app.regole.servizio);
     // i risultati sullo schermo valgono per la coppia precedente: via finché il nuovo controllo non è finito
     PC.revisioneUi.chiudi();
+    PC.letturaAutomaticaUi.ferma();
     $('check-risultati').hidden = true;
     ultimo = null;
     PC.check.ultimo = null;
@@ -130,6 +132,9 @@
         coppiaChiusa = true;
         $('check-stato').hidden = true;
         disegna();
+        // lettura automatica del marchio in sottofondo: aggiorna solo la scheda del visual check e il pannello aperto
+        const questo = ultimo;
+        if (questo.schermate.length) PC.letturaAutomaticaUi.avvia(questo, () => PC.revisioneUi.aggiornaLettura(questo));
         document.dispatchEvent(new CustomEvent('pc:controllo-finito', { detail: ultimo }));
         if (!ultimo.coppie.length) document.dispatchEvent(new CustomEvent('pc:risposte-complete', { detail: ultimo }));
       } catch (e) {

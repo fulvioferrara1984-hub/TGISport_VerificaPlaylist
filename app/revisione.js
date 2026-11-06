@@ -104,7 +104,7 @@
   // gruppi unici di tutte le schermate
   const gruppiUnici = (lista) => [...new Map(lista.flatMap((s) => s.gruppi).map((g) => [g.chiave, g])).values()];
 
-  // risposte: Map(chiave gruppo → { esito: 'correct' | 'wrong', nota }).
+  // risposte: Map(chiave gruppo → { esito: 'correct' | 'wrong', nota, auto? }); auto = parola del marchio letta dalla pagina (lettura-automatica.js).
   // totale / riviste contano le schermate degli slot; statici / staticiRisposti i gruppi della prima schermata.
   function avanzamento(lista, risposte) {
     const unici = gruppiUnici(lista);
@@ -115,6 +115,7 @@
       riviste: slot.filter((s) => s.gruppi.every((g) => risposte.has(g.chiave))).length,
       sbagliati: unici.filter((g) => (risposte.get(g.chiave) || {}).esito === 'wrong').length,
       risposti: unici.filter((g) => risposte.has(g.chiave)).length,
+      automatici: unici.filter((g) => (risposte.get(g.chiave) || {}).auto).length,
       statici: statici.length,
       staticiRisposti: statici.filter((g) => risposte.has(g.chiave)).length,
     };
@@ -136,6 +137,7 @@
     const parti = [];
     if (av.statici) parti.push(`static assets ${av.staticiRisposti} of ${av.statici}`);
     if (av.totale) parti.push(`${av.riviste} of ${av.totale} slots reviewed`);
+    if (av.automatici) parti.push(`${av.automatici} read automatically`);
     parti.push(`${av.sbagliati} wrong`);
     return parti.join(' · ');
   }
