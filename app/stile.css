@@ -248,6 +248,9 @@ body.con-pannello { overflow: hidden; }
 .rev-avanzamento { color: var(--inchiostro-2); font-size: 13px; }
 .rev-dove { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 4px; }
 .rev-dove span { padding: 2px 8px; border-radius: 6px; background: var(--sfondo); color: var(--inchiostro-2); font-size: 12.5px; }
+.rev-gruppo .rev-dove { margin: 0 0 8px; }
+.rev-gruppo .rev-dove span { background: var(--pannello); border: 1px solid var(--linea); }
+.rev-intro { margin: 10px 0 4px; }
 .rev-gruppo { margin-top: 12px; padding: 12px 14px; border: 1px solid var(--linea); border-radius: var(--raggio); }
 .rev-gruppo.giusto { border-color: var(--ok); background: var(--ok-tenue); }
 .rev-gruppo.sbagliato { border-color: var(--errore); background: var(--errore-tenue); }

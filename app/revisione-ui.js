@@ -26,7 +26,6 @@
     return b;
   }
 
-  const plurale = (n, uno, molti) => `${n} ${n === 1 ? uno : molti}`;
   const avanzamento = (u) => PC.revisione.avanzamento(u.schermate, u.risposteVisive);
   const daDecidere = (s) => s.gruppi.some((g) => !stato.ultimo.risposteVisive.has(g.chiave));
 
@@ -36,9 +35,9 @@
     const iniziato = av.risposti > 0;
     return el('div', {},
       el('h2', {}, 'Visual check'),
-      el('p', { class: 'nota' }, 'Watch each slot with all its zones next to the brand the Excel asks for, and mark each group Correct or Wrong. Wrong groups are added to the results as errors. The files never leave this browser.'),
+      el('p', { class: 'nota' }, 'First the static assets, which stay the same for the whole match, then each slot with its LED rows: watch them next to the brand the Excel asks for and mark each group Correct or Wrong. Wrong groups are added to the results as errors. The files never leave this browser.'),
       el('div', { class: 'visivo-riga' },
-        el('span', { class: 'visivo-avanzamento' }, iniziato ? `${av.riviste} of ${av.totale} slots reviewed · ${av.sbagliati} wrong` : `${plurale(av.totale, 'slot', 'slots')} to review`),
+        el('span', { class: 'visivo-avanzamento' }, iniziato ? PC.revisione.testoAvanzamento(av) : PC.revisione.testoDaFare(av)),
         bottone(iniziato ? 'Continue visual check' : 'Start visual check', 'primario', () => apri(ultimo, alCambio))));
   }
 
@@ -100,7 +99,18 @@
 
   function testoTestata() {
     const av = avanzamento(stato.ultimo);
-    return av.riviste === av.totale ? 'All slots reviewed' : `${av.riviste} of ${av.totale} reviewed`;
+    if (av.riviste === av.totale && av.staticiRisposti === av.statici) return 'All reviewed';
+    const parti = [];
+    if (av.statici) parti.push(`static assets ${av.staticiRisposti} of ${av.statici}`);
+    if (av.totale) parti.push(`${av.riviste} of ${av.totale} slots reviewed`);
+    return parti.join(' · ');
+  }
+
+  // "Static assets" per la prima schermata, "Slot n of N" per le altre (N senza la schermata degli statici)
+  function titoloSchermata(lista, indice) {
+    if (lista[indice].tipo === 'statici') return 'Static assets';
+    const prima = lista[0].tipo === 'statici' ? 1 : 0;
+    return `Slot ${indice + 1 - prima} of ${lista.length - prima}`;
   }
 
   function mostra() {
@@ -111,7 +121,7 @@
     const s = lista[stato.indice];
     const avanz = el('span', { class: 'rev-avanzamento' }, testoTestata());
     const testata = el('div', { class: 'rev-testata' },
-      el('h2', {}, `Slot ${stato.indice + 1} of ${lista.length}`),
+      el('h2', {}, titoloSchermata(lista, stato.indice)),
       avanz,
       el('span', { class: 'spazio' }),
       bottone('←', 'bottone', indietro),
@@ -120,7 +130,9 @@
       bottone('Close', 'bottone', chiudi));
     testata.querySelectorAll('button')[0].setAttribute('aria-label', 'Previous slot');
     testata.querySelectorAll('button')[1].setAttribute('aria-label', 'Next slot');
-    const dove = el('div', { class: 'rev-dove' }, ...s.dove.map((d) => el('span', {}, `${d.feed} · ${d.segmento} · ID ${PC.report.idCompatti(d.ids)}`)));
+    const dove = s.tipo === 'statici'
+      ? el('p', { class: 'nota rev-intro' }, 'These assets stay the same for the whole match: decide them once here, and the slots that follow show only what changes.')
+      : el('div', { class: 'rev-dove' }, ...s.dove.map((d) => el('span', {}, `${d.feed} · ${d.segmento} · ID ${PC.report.idCompatti(d.ids)}`)));
     const video = [];
     const gruppi = s.gruppi.map((g) => disegnaGruppo(g, video, giro, avanz));
     const pannello = el('div', { class: 'rev-pannello', tabindex: '-1' }, testata, dove, ...gruppi);
@@ -134,7 +146,7 @@
   }
 
   function titolo(g) {
-    const nome = g.gruppo === 'Zone' ? g.zone.map((z) => z.zona).join(' · ') : g.gruppo;
+    const nome = g.statico || g.gruppo === 'Zone' ? g.zone.map((z) => z.zona).join(' · ') : g.gruppo;
     return el('span', { class: 'rev-titolo' }, `${nome} · Excel says `, el('b', {}, g.atteso), g.nota ? ` (${g.nota})` : '');
   }
 
@@ -143,7 +155,10 @@
     const giusto = bottone('Correct', 'bottone', () => rispondi('correct'));
     const sbagliato = bottone('Wrong', 'bottone', () => rispondi('wrong'));
     const nota = el('input', { type: 'text', class: 'rev-nota', placeholder: 'What do you see? (optional)', 'aria-label': 'What do you see?' });
-    const sezione = el('section', { class: 'rev-gruppo' }, el('div', { class: 'rev-gruppo-testa' }, titolo(g), giusto, sbagliato), nota);
+    const sezione = el('section', { class: 'rev-gruppo' }, el('div', { class: 'rev-gruppo-testa' }, titolo(g), giusto, sbagliato));
+    // per uno statico: dove va in onda (feed e segmenti), al posto delle etichette dello slot
+    if (g.statico) sezione.appendChild(el('div', { class: 'rev-dove' }, ...PC.revisione.doveGruppo(g).map((d) => el('span', {}, `${d.feed.join(', ')} · ${d.segmenti.join(', ')}`))));
+    sezione.appendChild(nota);
     function aggiorna() {
       const r = risposte.get(g.chiave);
       sezione.classList.toggle('giusto', Boolean(r && r.esito === 'correct'));

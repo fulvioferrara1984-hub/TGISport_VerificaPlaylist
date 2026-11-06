@@ -42,5 +42,5 @@ test('visual check: scheda, pannello e script nella pagina', () => {
   assert.ok(HTML.includes('id="revisione"'));
   assert.ok(HTML.indexOf('app/revisione.js') > HTML.indexOf('app/report.js'));
   assert.ok(HTML.indexOf('app/revisione-ui.js') < HTML.indexOf('app/check.js'));
-  assert.equal(/\?v=(?!18")/.test(HTML), false, 'versione diversa da 18');
+  assert.equal(/\?v=(?!19")/.test(HTML), false, 'versione diversa da 19');
 });
