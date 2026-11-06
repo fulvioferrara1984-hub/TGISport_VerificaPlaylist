@@ -9,6 +9,8 @@ L'Excel comanda: ogni differenza è un errore del pacchetto, salvo i casi in cui
 
 L'interfaccia è in inglese britannico; codice, commenti e questo README sono in italiano.
 
+La grafica è quella della Piattaforma TGI Sport: menu laterale (sotto i 1024 px diventa un cassetto aperto da ☰), Montserrat, tema **scuro** predefinito e **chiaro** con l'interruttore *Light mode* / *Dark mode* nel menu e nella pagina di accesso. La scelta resta solo in quel browser (`localStorage`, chiave `tgi-tema`); `app/tema.js` la applica nel `<head>`, prima che la pagina si disegni. I colori sono variabili dei due temi in `app/stile.css`: fuori da quei due blocchi non si scrivono colori (lo controlla `test/stile.test.js`, con il contrasto WCAG).
+
 ## Come si usa
 
 1. Aprire il sito e inserire la **password del team** di Playlist Check. Con *Remember on this device* non la chiede più su quel computer; *Sign out* la dimentica.
@@ -72,7 +74,7 @@ La password del team sta solo in locale in `regole-sorgente/password.txt` (prima
 | Percorso | Contenuto |
 |---|---|
 | `index.html` | pagina unica (Check / Statistics / Settings) |
-| `app/` | moduli: lettura Excel e AIR (Hub), lettura e confronto Vault, video, confronto, report, visual check (`revisione.js` schermate e risposte, `revisione-ui.js` pannello), cifratura, accesso, schede |
+| `app/` | moduli: lettura Excel e AIR (Hub), lettura e confronto Vault, video, confronto, report, visual check (`revisione.js` schermate e risposte, `revisione-ui.js` pannello), cifratura, accesso, menu e tema (`app.js`, `tema.js`), stile (`stile.css`), carattere Montserrat (`font/`, licenza OFL) |
 | `lib/` | JSZip 3.10.1 e SheetJS 0.20.3 (copiati, nessun CDN) |
 | `regole/regole.js` | regole cifrate |
 | `backend/` | script Google (`Codice.gs`, `appsscript.json`) |

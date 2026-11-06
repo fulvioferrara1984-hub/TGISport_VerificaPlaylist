@@ -42,5 +42,37 @@ test('visual check: scheda, pannello e script nella pagina', () => {
   assert.ok(HTML.includes('id="revisione"'));
   assert.ok(HTML.indexOf('app/revisione.js') > HTML.indexOf('app/report.js'));
   assert.ok(HTML.indexOf('app/revisione-ui.js') < HTML.indexOf('app/check.js'));
-  assert.equal(/\?v=(?!19")/.test(HTML), false, 'versione diversa da 19');
+  assert.equal(/\?v=(?!20")/.test(HTML), false, 'versione diversa da 20');
+});
+
+test('grafica della Piattaforma: tema applicato nel <head> prima del CSS', () => {
+  const testa = HTML.slice(0, HTML.indexOf('</head>'));
+  assert.ok(testa.includes('<script src="app/tema.js?v=20"></script>'), 'tema.js nel head');
+  assert.ok(testa.indexOf('app/tema.js') < testa.indexOf('app/stile.css'), 'tema.js prima del CSS');
+});
+
+test('menu laterale: Workspace con Check e Statistics, More con Settings; cassetto e percorso', () => {
+  const voci = [...HTML.matchAll(/<button type="button" class="voce-menu" data-vista="([a-z]+)">/g)].map((m) => m[1]);
+  assert.deepEqual(voci, ['check', 'statistics', 'settings']);
+  const sezioni = [...HTML.matchAll(/<p class="sezione-menu">([^<]+)<\/p>/g)].map((m) => m[1]);
+  assert.deepEqual(sezioni, ['Workspace', 'More']);
+  assert.ok(HTML.includes('<aside class="lato" id="menu-laterale">'));
+  assert.match(HTML, /<button type="button" class="bottone leggero apri-menu" id="apri-menu" aria-label="Open menu" aria-controls="menu-laterale" aria-expanded="false">/);
+  assert.ok(HTML.includes('id="velo-lato"'));
+  assert.ok(HTML.includes('id="percorso-vista"'));
+  assert.ok(HTML.includes('id="oggi"'));
+  ['vista-check', 'vista-statistics', 'vista-settings', 'btn-esci', 'avvisi'].forEach((id) => assert.ok(HTML.includes(`id="${id}"`), id));
+});
+
+test('interruttore del tema nel menu e nella pagina di accesso; logo bianco e nero', () => {
+  assert.equal((HTML.match(/class="bottone leggero interruttore-tema"/g) || []).length, 2);
+  const accesso = HTML.slice(HTML.indexOf('id="accesso"'), HTML.indexOf('class="guscio"'));
+  assert.ok(accesso.includes('interruttore-tema'), 'interruttore nella pagina di accesso');
+  assert.ok(HTML.includes('src="Logo/TGI-Sport_white.png"') && HTML.includes('src="Logo/TGI-Sport_black.png"'));
+  assert.ok(!/class="schede"/.test(HTML), 'le vecchie schede in alto non ci sono più');
+});
+
+test('font e logo della grafica sono nel sito', () => {
+  const radice = path.join(__dirname, '..');
+  ['app/font/montserrat-latin.woff2', 'app/font/OFL.txt', 'Logo/TGI-Sport_white.png', 'Logo/TGI-Sport_black.png'].forEach((f) => assert.ok(fs.existsSync(path.join(radice, f)), f));
 });
