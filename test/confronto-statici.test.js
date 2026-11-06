@@ -102,3 +102,23 @@ test('varianti di nome negli statici: registrate come Variant (per l’elenco Na
   const m = prova({ zone: ['CLUB_LSX'], attesi: { MAT1: st('BETA GROUP', 'B4', 'CLUB MAT 1') }, slot: [{ mappe: {} }, { mappe: { 0: art('BETA_LSX') } }] });
   assert.deepEqual(breve(m.esiti), [{ tipo: 'Variant', id: 1, colonna: 'STATIC B4 · CLUB MAT 1', zona: 'CLUB_LSX', atteso: 'BETA GROUP', trovato: 'BETA_LSX' }]);
 });
+
+test('animazioni: statici con brand atteso (MAT dalla colonna, zone a regola fissa)', () => {
+  const c = prova({ zone: ['CLUB_UDX', 'SPZ_LSX'], attesi: { MAT3: st('ALFA', 'B6', 'CLUB MAT 3') },
+    slot: [{ mappe: {} }, { mappe: { 0: art('ALFA_UDX'), 1: art('OMEGABET_LSX') } }] });
+  assert.deepEqual(c.animazioni, [
+    { feed: 'Feed', segmento: '1st Half - 2nd Half', slot: 1, id: 1, gruppo: 'Statics', colonna: 'STATIC B6 · CLUB MAT 3', atteso: 'ALFA', nota: '', zone: [{ zona: 'CLUB_UDX', file: '1000_alfa_udx.mp4' }] },
+    { feed: 'Feed', segmento: '1st Half - 2nd Half', slot: 1, id: 1, gruppo: 'Statics', colonna: 'Rule · SPZ zones', atteso: 'OMEGABET', nota: '', zone: [{ zona: 'SPZ_LSX', file: '1000_omegabet_lsx.mp4' }] },
+  ]);
+});
+
+test('animazioni: centro campo solo dove ha un brand atteso (slot 2 del pre-match)', () => {
+  const c = prova({ zone: ['FULL PERIMETER', 'CC'], tipo: 'PRE', attesi: { CC: st('ALFA', 'B3', 'CENTRE CIRCLE') },
+    slot: [{ mappe: { 0: BLANK, 1: CIRCLE } }, { mappe: { 0: BLANK, 1: art('ALFA_CC') } }, { mappe: { 0: BLANK, 1: CIRCLE } }] });
+  assert.deepEqual(c.animazioni.map((v) => [v.slot, v.id, v.zone[0].zona, v.atteso, v.colonna]), [[1, 2, 'CC', 'ALFA', 'STATIC B3 · CENTRE CIRCLE']]);
+});
+
+test('animazioni: lead-in e statici senza brand atteso → nessuna voce', () => {
+  const c = prova({ zone: ['CLUB_UDX'], attesi: { MAT3: st('ALFA', 'B6', 'CLUB MAT 3') }, slot: [{ mappe: { 0: art('ALFA_UDX') } }] });
+  assert.deepEqual(c.animazioni, []);
+});

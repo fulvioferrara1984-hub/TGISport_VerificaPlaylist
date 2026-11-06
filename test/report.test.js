@@ -120,3 +120,24 @@ test('sistema nello storico e nel report: Hub se non è indicato, Vault per i pa
   const s = XLSX.utils.sheet_to_json(XLSX.read(esportaExcel(risultato, { excel: 'v.xlsx', air: 'v.zip' }, XLSX), { type: 'array' }).Sheets.Summary, { header: 1 });
   assert.deepEqual(s.slice(4, 7), [['Vault package', 'v.zip'], ['Cells checked', 4], ['System', 'Vault']]);
 });
+
+const RIS = (esiti, conteggi = {}) => ({ celle: 10, esiti, riepilogo: { partita: 'ALFA - BETA', venue: 'Stadio Prova', dataEvento: '2026-10-12', conteggi } });
+const summary = (risultato, visivo) => XLSX.utils.sheet_to_json(XLSX.read(esportaExcel(risultato, { excel: 'p.xlsx', air: 'p.zip' }, XLSX, visivo), { type: 'array' }).Sheets.Summary, { header: 1 });
+
+test('export Excel: riga Visual check nel Summary, subito dopo System', () => {
+  const s = summary(RIS([]), 'not started');
+  const i = s.findIndex((r) => r[0] === 'System');
+  assert.deepEqual(s[i + 1], ['Visual check', 'not started']);
+  assert.equal(summary(RIS([])).some((r) => r[0] === 'Visual check'), false);
+});
+
+test('export Excel: conteggi sugli esiti attuali, non su quelli di prima delle conferme', () => {
+  const s = summary(RIS([E('Error', 1)], { Error: 5 }));
+  assert.deepEqual(s.find((r) => r[0] === 'Error'), ['Error', 1]);
+});
+
+test('export Excel: righe del visual check nei Findings', () => {
+  const v = E('Error', 3, 'GL_SX_1', 'ALFA', 'wrong animation (visual check): a.mp4');
+  const f = XLSX.utils.sheet_to_json(XLSX.read(esportaExcel(RIS([v]), { excel: 'p.xlsx', air: 'p.zip' }, XLSX, '1 of 1 slots reviewed · 1 wrong'), { type: 'array' }).Sheets.Findings, { header: 1 });
+  assert.deepEqual(f[1], ['Error', 'Europa', '1st - 2nd Half', 3, 'J · EUROPE – First row', 'GL_SX_1', 'ALFA', 'wrong animation (visual check): a.mp4']);
+});

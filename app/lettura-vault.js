@@ -71,7 +71,12 @@
       const info = dip('video').infoVideo(await voce.async('uint8array'));
       if (info) durateMedia.set(nome, info);
     }
-    return { sistema: 'Vault', progetto, zone, stream, media, durateMedia };
+    // byte di un file di assets/ (per il visual check), letti solo quando servono; null se non c'è
+    const leggiMedia = async (nome) => {
+      const voce = zip.files[radiceZip + 'assets/' + nome];
+      return voce && !voce.dir ? voce.async('uint8array') : null;
+    };
+    return { sistema: 'Vault', progetto, zone, stream, media, durateMedia, leggiMedia };
   }
 
   // Playlist Excel del Vault: un foglio per feed con l'intestazione "Slot | Clock | Time Phase | Time Phase Slot | Duration | <zone>…"

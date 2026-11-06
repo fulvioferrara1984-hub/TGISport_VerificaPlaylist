@@ -29,6 +29,7 @@
   // quelle fasi, il pre-match "Not Applicable" con contenuti e l'ultimo slot con un'altra durata sono avvisi, non errori.
   function verificaVault(excel, zip) {
     const esiti = [];
+    const animazioni = []; // zone con il loro asset e il Partner atteso, per il visual check: non cambiano gli esiti
     let celle = 0;
     let cella = null;
     const nota = (tipo, feed, segmento, id, colonna, zona, atteso, trovato) =>
@@ -83,6 +84,8 @@
               continue;
             }
             const a = assets[0];
+            animazioni.push({ feed, segmento: nomeFase, slot: r.slotFase - 1, id, gruppo: 'Zone', colonna: colFile, atteso: String(atteso.partner || '').trim() || String(atteso.file).trim(),
+              nota: '', zone: [{ zona: z.nome, file: a.file }] });
             if (k(senzaEstensione(a.file)) !== k(senzaEstensione(atteso.file))) nota('Error', feed, nomeFase, id, colFile, z.nome, atteso.file, a.file);
             if (k(atteso.partner) !== k(a.partner)) nota('Warning', feed, nomeFase, id, `${lettera(z.colPartner)} · ${z.nome} – Partner`, z.nome, atteso.partner, a.partner);
             if (zip.media.size && !zip.media.has(a.file)) nota('Error', feed, nomeFase, id, '-', z.nome, 'media file', 'missing ' + a.file);
@@ -110,6 +113,7 @@
     return {
       celle,
       esiti,
+      animazioni,
       riepilogo: {
         sistema: 'Vault',
         partita, casa: sq ? sq[0] : '', ospite: sq ? sq[1] : '',

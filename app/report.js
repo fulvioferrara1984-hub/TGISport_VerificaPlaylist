@@ -130,12 +130,16 @@
   const INTESTAZIONE = ['Type', 'Feed', 'Segment', 'ID', 'Column', 'Zone', 'Expected', 'Found'];
 
   // Excel del report: foglio Summary e foglio Findings (una riga per risultato non corretto, non raggruppata).
-  function esportaExcel(risultato, nomiFile, XLSX) {
+  // visivo: avanzamento del visual check (es. "not started"); i conteggi seguono gli esiti attuali (dopo conferme e visual check).
+  function esportaExcel(risultato, nomiFile, XLSX, visivo) {
     const r = risultato.riepilogo;
-    const conteggi = r.conteggi || {};
+    const conteggi = {};
+    risultato.esiti.forEach((e) => { conteggi[e.tipo] = (conteggi[e.tipo] || 0) + 1; });
     const sistema = r.sistema || 'Hub';
     const riassunto = [['Match', r.partita], ['Venue', r.venue], ['Event date', r.dataEvento], ['Excel playlist', nomiFile.excel],
-      [sistema === 'Vault' ? 'Vault package' : 'AIR package', nomiFile.air], ['Cells checked', risultato.celle], ['System', sistema]].concat(ORDINE.filter((t) => conteggi[t]).map((t) => [t, conteggi[t]]));
+      [sistema === 'Vault' ? 'Vault package' : 'AIR package', nomiFile.air], ['Cells checked', risultato.celle], ['System', sistema]]
+      .concat(visivo ? [['Visual check', visivo]] : [])
+      .concat(ORDINE.filter((t) => conteggi[t]).map((t) => [t, conteggi[t]]));
     const righe = risultato.esiti.filter((e) => e.tipo !== 'Correct' && e.tipo !== 'Variant')
       .map((e) => [e.tipo, e.feed, e.segmento, e.id, e.colonna, e.zona, e.atteso, e.trovato]);
     const wb = XLSX.utils.book_new();

@@ -99,3 +99,18 @@ test('riepilogo: sistema, partita e squadre, data, feed e fasi; partite diverse'
     { sistema: 'Vault', partita: 'Alfa v Beta', casa: 'Alfa', ospite: 'Beta', venue: 'Stadio Prova', dataEvento: '2026-10-21', partiteDiverse: false, feed: ['Dark Market'], segmenti: ['Pre-match', '1st Half'] });
   assert.equal((await prova({ fasi: BASE, righe: RIGHE, partita: 'Gamma v Delta' })).riepilogo.partiteDiverse, true);
 });
+
+test('animazioni: una voce per zona con un asset e un file atteso; Not Applicable escluso', async () => {
+  const r = await prova({ fasi: BASE, righe: RIGHE });
+  assert.equal(r.animazioni.length, 6); // 2 slot × 3 zone; il pre-match è Not Applicable
+  assert.deepEqual(r.animazioni[0], { feed: 'Dark Market', segmento: '1st Half', slot: 0, id: 1, gruppo: 'Zone', colonna: 'F · Left – File name', atteso: 'Alfa', nota: '', zone: [{ zona: 'Left', file: F('Alfa', 'Left') }] });
+  assert.deepEqual(r.animazioni.slice(0, 3).map((v) => [v.zone[0].zona, v.atteso, v.colonna]),
+    [['Left', 'Alfa', 'F · Left – File name'], ['Center', 'Centre Boards', 'H · Center – File name'], ['Right', 'Alfa', 'J · Right – File name']]);
+  assert.deepEqual(r.animazioni.slice(3).map((v) => [v.slot, v.id]), [[1, 2], [1, 2], [1, 2]]);
+});
+
+test('animazioni: Partner vuoto nell\'Excel → atteso = nome del file', async () => {
+  const righe = [RIGHE[0], ['1st Half', 1, '00:00:20', [F('Alfa', 'Left'), ''], [CE, 'Centre Boards'], [F('Alfa', 'Right'), 'Alfa']], riga('1st Half', 2, 'Beta')];
+  const r = await prova({ fasi: BASE, righe });
+  assert.equal(r.animazioni[0].atteso, F('Alfa', 'Left'));
+});

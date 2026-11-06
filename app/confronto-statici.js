@@ -38,6 +38,13 @@
     const partita = tipo.startsWith('MATCH');
     const nota = (tipoEsito, id, colonna, zona, atteso, trovato) => c.nota({ tipo: tipoEsito, feed: stream.nome, segmento: segmento.nome, id, colonna, zona, atteso, trovato });
     const etichetta = (voce) => `STATIC ${voce.cella} · ${voce.etichetta}`;
+    // per il visual check: una zona statica con un artwork e il brand atteso (aggancio facoltativo)
+    const vista = (slot, id, colonna, zona, atteso, a) => {
+      if (c.vista && atteso && String(atteso).trim()) {
+        c.vista({ feed: stream.nome, segmento: segmento.nome, slot, id, gruppo: 'Statics', colonna, atteso: String(atteso).trim(), nota: '',
+          zone: [{ zona, file: String(a.file).split('/').pop() }] });
+      }
+    };
     const sconosciute = new Set(); // zone CLUB che non sono CLUB_LSX/USX/UDX/LDX: un solo avviso per segmento
     segmento.intervalli.forEach((iv, i) => {
       const perZona = new Map();
@@ -54,6 +61,7 @@
           if (!a || a.ad === 'Circle_Empty') {
             if (atteso) nota('Error', id, etichetta(voce), zn, String(atteso), 'Circle_Empty');
           } else {
+            vista(i, id, etichetta(voce), zn, atteso, a);
             const es = confronta(c, atteso, a);
             if (es === 'variante') nota('Variant', id, etichetta(voce), zn, String(atteso), a.ad);
             else if (es !== 'ok') nota(es === 'errore' ? 'Error' : 'Possible typo', id, etichetta(voce), zn, String(atteso || 'Circle_Empty'), a.ad);
@@ -75,6 +83,7 @@
           if (!trovato) {
             if (atteso) nota('Error', id, col, zn, String(atteso), 'nothing');
           } else {
+            vista(i, id, col, zn, atteso, trovato);
             const es = confronta(c, atteso, trovato);
             if (es === 'errore') nota('Error', id, col, zn, String(atteso || 'nothing'), trovato.ad);
             else if (es === 'refuso') nota('Possible typo', id, col, zn, String(atteso), trovato.ad);

@@ -40,6 +40,7 @@
     stato.excel = null;
     stato.air = null;
     ['excel', 'air'].forEach((tipo) => { mostraFile(tipo, testoIniziale[tipo]); erroreFile(tipo, ''); });
+    PC.revisioneUi.chiudi();
     $('check-risultati').hidden = true;
     $('check-stato').hidden = true;
     ultimo = null;
@@ -70,6 +71,7 @@
     // alias approvati in Settings, riletti mentre si leggono i file (al massimo 5 secondi; se lo script non risponde restano quelli di prima)
     const aliasAggiornati = PC.alias.aggiorna(PC.app.regole.servizio);
     // i risultati sullo schermo valgono per la coppia precedente: via finché il nuovo controllo non è finito
+    PC.revisioneUi.chiudi();
     $('check-risultati').hidden = true;
     ultimo = null;
     PC.check.ultimo = null;
@@ -119,6 +121,10 @@
           nomiFile: { excel: stato.excel.file.name, air: stato.air.file.name },
           risposte: new Map(),
           coppie: PC.report.coppieDaConfermare(risultato.esiti),
+          // visual check: slot da rivedere, risposte per gruppo e media presi dallo zip già letto
+          schermate: PC.revisione.schermate(risultato.animazioni || []),
+          risposteVisive: new Map(),
+          media: stato.air.dati.leggiMedia,
         };
         PC.check.ultimo = ultimo;
         coppiaChiusa = true;
@@ -174,10 +180,17 @@
     }));
   }
 
+  // esiti sullo schermo e nel report: quelli del controllo dopo le conferme, più gli errori del visual check
+  function ricalcola() {
+    const originali = ultimo.risultatoOriginale.esiti;
+    ultimo.risultato = { ...ultimo.risultatoOriginale,
+      esiti: PC.report.applicaRisposte(originali, ultimo.risposte).concat(PC.revisione.esitiVisivi(ultimo.schermate, ultimo.risposteVisive)) };
+    disegna();
+  }
+
   function rispondi(chiave, risposta) {
     ultimo.risposte.set(chiave, risposta);
-    ultimo.risultato = { ...ultimo.risultatoOriginale, esiti: PC.report.applicaRisposte(ultimo.risultatoOriginale.esiti, ultimo.risposte) };
-    disegna();
+    ricalcola();
     if (ultimo.coppie.every((c) => ultimo.risposte.has(c.chiave))) {
       document.dispatchEvent(new CustomEvent('pc:risposte-complete', { detail: ultimo }));
     }
@@ -220,11 +233,18 @@
       el('td', {}, c.feed), el('td', {}, c.colonna), el('td', {}, c.atteso), el('td', {}, c.trovato), el('td', {}, c.conta))));
   }
 
+  function disegnaVisivo() {
+    const box = $('check-visivo');
+    box.hidden = !ultimo.schermate.length;
+    box.replaceChildren(...(box.hidden ? [] : [PC.revisioneUi.scheda(ultimo, ricalcola)]));
+  }
+
   function disegna() {
     $('check-risultati').hidden = false;
     disegnaRiepilogo();
     disegnaBanner();
     disegnaConferme();
+    disegnaVisivo();
     disegnaTabella();
     disegnaVarianti();
   }
@@ -306,7 +326,8 @@
 
   function scarica() {
     if (!ultimo) return;
-    const dati = PC.report.esportaExcel(ultimo.risultato, ultimo.nomiFile, window.XLSX);
+    const visivo = ultimo.schermate.length ? PC.revisione.testoAvanzamento(PC.revisione.avanzamento(ultimo.schermate, ultimo.risposteVisive)) : '';
+    const dati = PC.report.esportaExcel(ultimo.risultato, ultimo.nomiFile, window.XLSX, visivo);
     const nome = `Playlist Check – ${ultimo.risultato.riepilogo.partita.replace(/[\\/:*?"<>|]/g, '-')}.xlsx`;
     PC.archivio.scarica(nome, new Blob([dati], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
   }

@@ -41,7 +41,9 @@ test('errori inseriti apposta', { skip: pronto ? false : 'PC_COPPIE o regole-sor
 
   async function prova(nome, modifica, controlla) {
     await t.test(nome, () => {
-      const m = structuredClone(originale);
+      // leggiMedia è una funzione: structuredClone non la copia, e le mutazioni non la usano
+      const { leggiMedia, ...air } = originale.air;
+      const m = structuredClone({ excel: originale.excel, air });
       modifica(m);
       controlla(nuovi(base, verifica(m.excel, m.air, regole).esiti), m);
     });

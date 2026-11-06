@@ -116,3 +116,20 @@ test('leggiAir: formato in pixel dei media usati, immagini comprese; i file che 
   const air = await leggiAir(dati, JSZip);
   assert.deepEqual([...air.formatiMedia].sort(), [['5_alfa.mp4', { larghezza: 5130, altezza: 180 }], ['6_beta.png', { larghezza: 3100, altezza: 90 }]]);
 });
+
+test('leggiAir: leggiMedia legge un file di advertisements/ solo quando serve; null se non c\'è', async () => {
+  const evento = hdmEvento({ stream: [['Europa', [['1st Half - 2nd Half', 'sequences/europa_1st.hdm']]]] });
+  const dati = await zipAir(JSZip, {
+    evento, sequenze: { 'sequences/europa_1st.hdm': hdmSequenza([{ inizio: 0, durata: 15000, mappe: [['10', [0]]] }], ADS) },
+    media: ['5_casa_alfa_1.mp4', ['7_casa_alfa_1.mp4', new Uint8Array([9, 8, 7])]],
+  });
+  const spia = await spiaLetture(JSZip, dati);
+  try {
+    const air = await leggiAir(dati, JSZip);
+    assert.ok(!spia.letti.some((p) => p.endsWith('/7_casa_alfa_1.mp4')), 'letto prima di chiederlo');
+    assert.deepEqual(Array.from(await air.leggiMedia('7_casa_alfa_1.mp4')), [9, 8, 7]);
+    assert.equal(await air.leggiMedia('nessuno.mp4'), null);
+  } finally {
+    spia.ripristina();
+  }
+});

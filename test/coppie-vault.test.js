@@ -60,7 +60,9 @@ test('Vault: errori inseriti apposta in una coppia reale pulita', { skip: pronto
 
   async function prova(nome, modifica, controlla) {
     await t.test(nome, () => {
-      const m = { excel: structuredClone(originale.excel), zip: structuredClone(originale.zip) };
+      // leggiMedia è una funzione: structuredClone non la copia, e le mutazioni non la usano
+      const { leggiMedia, ...zip } = originale.zip;
+      const m = { excel: structuredClone(originale.excel), zip: structuredClone(zip) };
       modifica(m);
       controlla(nuovi(base, verificaVault(m.excel, m.zip).esiti), m);
     });
@@ -111,4 +113,33 @@ test('Vault: errori inseriti apposta in una coppia reale pulita', { skip: pronto
     assert.ok(d.every((e) => e.tipo === 'Error' && /video fitting a/.test(e.atteso) && /16\.67 s \(60 fps\)$/.test(e.trovato)));
     assert.ok(d.some((e) => e.segmento === '1st Half' && e.id === n && e.zona === 'Left'));
   });
+});
+
+test('animazioni delle coppie Vault: una voce per ogni zona con un file atteso e un solo asset', { skip: pronto ? false : 'PC_VAULT o attesi-vault.json non ci sono' }, async (t) => {
+  const { k } = require('../app/nomi.js');
+  const { schermate } = require('../app/revisione.js');
+  const attesi = JSON.parse(fs.readFileSync(ATTESI, 'utf8'));
+  for (const nome of Object.keys(attesi).sort()) {
+    await t.test(nome, async () => {
+      const { excel, zip } = await leggi(path.join(CARTELLA, nome));
+      const r = verificaVault(excel, zip);
+      let attese = 0;
+      for (const foglio of excel.feed) {
+        const s = zip.stream.find((x) => k(x.nome) === k(foglio.nome));
+        if (!s) continue;
+        for (const riga of foglio.righe) {
+          const fase = s.fasi.find((f) => k(f.nome) === k(riga.fase));
+          const slot = fase && fase.intervalli && fase.intervalli[riga.slotFase - 1];
+          if (!slot) continue;
+          for (const z of foglio.zone) {
+            const a = riga.zone.get(z.nome);
+            const chiaveZona = [...slot.zone.keys()].find((n) => k(n) === k(z.nome));
+            if (a.file && k(a.file) !== 'NOTAPPLICABLE' && chiaveZona && slot.zone.get(chiaveZona).length === 1) attese++;
+          }
+        }
+      }
+      t.diagnostic(`${nome}: ${schermate(r.animazioni).length} schermate, ${r.animazioni.length} voci`);
+      assert.equal(r.animazioni.length, attese);
+    });
+  }
 });

@@ -30,3 +30,17 @@ test('nessuno script o stile scritto dentro la pagina (la policy li bloccherebbe
   assert.equal(/\sstyle="/.test(HTML), false);
   assert.equal(/\son[a-z]+="/.test(HTML), false);
 });
+
+test('Content-Security-Policy: video e immagini del visual check (blob: creati dalla pagina)', () => {
+  const p = politica();
+  assert.deepEqual(p.get('media-src'), ["'self'", 'blob:']);
+  assert.ok(p.get('img-src').includes('blob:'));
+});
+
+test('visual check: scheda, pannello e script nella pagina', () => {
+  assert.ok(HTML.includes('id="check-visivo"'));
+  assert.ok(HTML.includes('id="revisione"'));
+  assert.ok(HTML.indexOf('app/revisione.js') > HTML.indexOf('app/report.js'));
+  assert.ok(HTML.indexOf('app/revisione-ui.js') < HTML.indexOf('app/check.js'));
+  assert.equal(/\?v=(?!18")/.test(HTML), false, 'versione diversa da 18');
+});

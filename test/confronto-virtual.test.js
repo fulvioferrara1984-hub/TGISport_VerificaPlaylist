@@ -122,3 +122,45 @@ test('fila delle zone ricavata dai file che ospitano (TL_A di seconda fila anche
   // slot 2: perimetro intero di prima fila, TL_A (seconda fila) vuota e Excel senza seconda fila → nessun errore
   assert.deepEqual(breve(c.esiti), [{ tipo: 'Error', id: 4, colonna: 'G · NORTH AMERICA – Second row', zona: 'TL_A', atteso: 'BETA', trovato: 'ALFA_GC1 (first-row file)' }]);
 });
+
+test('animazioni: una voce per fila con brand, file della fila, slot del pacchetto', () => {
+  const c = prova({ slot: [{ mappe: pieno }], righe: [{ valori: ALFA }] });
+  assert.deepEqual(c.animazioni, [
+    { feed: 'North America', segmento: '1st Half - 2nd Half', slot: 1, id: 1, gruppo: 'First row', colonna: 'F · NORTH AMERICA – First row', atteso: 'ALFA', nota: '', zone: [{ zona: 'FULL PERIMETER', file: '1000_alfa_gc1.mp4' }] },
+    { feed: 'North America', segmento: '1st Half - 2nd Half', slot: 1, id: 1, gruppo: 'Second row', colonna: 'G · NORTH AMERICA – Second row', atteso: 'ALFA', nota: '', zone: [{ zona: 'GL_SX_2', file: '1000_alfa_gl2.mp4' }] },
+  ]);
+});
+
+test('animazioni: ID Excel che partono da 2, lo slot resta quello del pacchetto', () => {
+  const c = prova({ slot: [{ mappe: pieno }], righe: [{ id: 2, valori: ALFA }] });
+  assert.deepEqual(c.animazioni.map((v) => [v.slot, v.id]), [[1, 2], [1, 2]]);
+});
+
+test('animazioni: recovery con il brand ripetuto e la nota', () => {
+  const c = prova({ slot: [{ mappe: pieno }, { mappe: pieno }, { mappe: pieno }], righe: [{ valori: ALFA }, { valori: ALFA }, {}] });
+  assert.deepEqual(c.animazioni.filter((v) => v.slot === 3).map((v) => [v.gruppo, v.atteso, v.nota]),
+    [['First row', 'ALFA', 'repeat of ID 2'], ['Second row', 'ALFA', 'repeat of ID 2']]);
+});
+
+test('animazioni: fila senza brand nell\'Excel (non in coda) → nessuna voce', () => {
+  const c = prova({ slot: [{ mappe: pieno }, { mappe: { 0: R1, 1: BLANK } }, { mappe: pieno }], righe: [{ valori: ALFA }, {}, { valori: ALFA }] });
+  assert.equal(c.animazioni.filter((v) => v.slot === 2).length, 0);
+  assert.equal(c.animazioni.length, 4);
+});
+
+test('animazioni: feed condiviso, brand e colonna della prima regione', () => {
+  const colonne = { 'NA|1': 5, 'NA|2': 6, 'CSA|1': 7, 'CSA|2': 8 };
+  const c = prova({ regioni: ['CSA', 'NA'], colonne, slot: [{ mappe: pieno }], righe: [{ valori: { 'NA|1': 'ALFA', 'NA|2': 'ALFA', 'CSA|1': 'BETA', 'CSA|2': 'ALFA' } }] });
+  assert.deepEqual([c.animazioni[0].atteso, c.animazioni[0].colonna], ['ALFA', 'F · NORTH AMERICA – First row']);
+});
+
+test('animazioni: gli esiti non cambiano senza l\'aggancio', () => {
+  const dati = { slot: [{ mappe: pieno }, { mappe: { 0: art('OMEGA_GC1', 'CASA_OMEGA_1'), 1: R2 } }], righe: [{ valori: ALFA }, { valori: ALFA }] };
+  const con = prova(dati);
+  const c = contesto({});
+  delete c.vista;
+  const seg = segmento('1st Half - 2nd Half', [{ mappe: vuotoLed }].concat(dati.slot));
+  controllaVirtual(c, stream('North America', ['NA']), seg, 'MATCH', tabella({ righe: dati.righe }));
+  assert.deepEqual(c.esiti, con.esiti);
+  assert.equal(con.animazioni.length, 4);
+});

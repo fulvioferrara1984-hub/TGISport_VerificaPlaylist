@@ -44,6 +44,8 @@ function contesto({ zone = ['FULL PERIMETER', 'GL_SX_2', 'CC'], angoliStatici = 
     giusti: new Set(),
     celle: { n: 0 },
     esiti,
+    animazioni: [],
+    vista(v) { this.animazioni.push(v); },
   };
 }
 

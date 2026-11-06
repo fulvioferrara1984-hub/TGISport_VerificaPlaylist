@@ -256,3 +256,9 @@ test('riepilogo dell’Hub: sistema, feed e segmenti (mostrati come quelli del V
   const r = verifica(excel, air, REGOLE).riepilogo;
   assert.deepEqual([r.sistema, r.feed, r.segmenti], ['Hub', ['Europa'], ['Pre Match - Post Match', '1st Half - 2nd Half', 'Highlights']]);
 });
+
+test('verifica: animazioni nel risultato, esiti invariati', () => {
+  const { excel, air } = modello({ righe: ['ALFA'], slot: [A('ALFA')] });
+  const r = verifica(excel, air, REGOLE);
+  assert.deepEqual(r.animazioni.map((v) => [v.feed, v.gruppo, v.atteso, v.zone[0].zona]), [['Europa', 'First row', 'ALFA', 'FULL PERIMETER']]);
+});

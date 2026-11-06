@@ -94,6 +94,9 @@
       (z) => ruoloZona(air.zone.get(z), angoliStatici, c.prefissoSponsor).startsWith('LED'));
     // ogni risultato prende il numero della cella in controllo (null fuori dalle celle): serve a contare le celle corrette
     c.nota = (e) => esiti.push(c.cella ? { ...e, cella: c.cella } : e);
+    // gruppi di zone con il brand atteso, per il visual check: non cambiano gli esiti
+    const animazioni = [];
+    c.vista = (v) => animazioni.push(v);
     const abituali = air.formatiMedia ? formatiDelleZone(air.stream, air.formatiMedia) : new Map();
     const tabelle = Object.values(excel.partite).concat([excel.hl]);
     const nomiExcel = new Set();
@@ -162,6 +165,7 @@
     return {
       celle: c.celle.n,
       esiti,
+      animazioni,
       riepilogo: {
         partita: sq ? sq.join(' - ') : String(excel.titolo || ev.nome),
         casa: sq ? sq[0] : '', ospite: sq ? sq[1] : '',

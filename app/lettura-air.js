@@ -118,7 +118,12 @@
       const durata = durataVideo(byte);
       if (durata) durateMedia.set(nome, durata);
     }
-    return { evento: { nome: evento.nome, data: evento.data, venue: evento.venue }, zone: evento.zone, stream, media, durateMedia, formatiMedia };
+    // byte di un file di advertisements/ (per il visual check), letti solo quando servono; null se non c'è
+    const leggiMedia = async (nome) => {
+      const voce = zip.files[radiceZip + 'advertisements/' + nome];
+      return voce && !voce.dir ? voce.async('uint8array') : null;
+    };
+    return { evento: { nome: evento.nome, data: evento.data, venue: evento.venue }, zone: evento.zone, stream, media, durateMedia, formatiMedia, leggiMedia };
   }
 
   return { NOME: 'letturaAir', regioniStream, parseSequenza, parseEvento, durataVideo, leggiAir };

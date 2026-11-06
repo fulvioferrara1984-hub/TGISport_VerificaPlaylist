@@ -60,3 +60,10 @@ test('Excel non Vault (Hub): null', () => {
   const { cartella } = require('./fixture-excel.js');
   assert.equal(leggiExcelVault(cartella({ righe: [[1, 15, 'ALFA']] }), XLSX), null);
 });
+
+test('zip Vault: leggiMedia legge un file di assets/ quando serve; null se non c\'è', async () => {
+  const dati = await zipVault(JSZip, { feed: { Dark_Market: { '1st_Half': [{ durata: 20000, zone: { Left: [SX, 'Alfa'] } }] } }, assets: [[SX, new Uint8Array([4, 5])]] });
+  const z = await leggiZipVault(dati, JSZip);
+  assert.deepEqual(Array.from(await z.leggiMedia(SX)), [4, 5]);
+  assert.equal(await z.leggiMedia(DX), null);
+});

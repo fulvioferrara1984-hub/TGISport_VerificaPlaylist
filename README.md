@@ -17,6 +17,7 @@ L'interfaccia è in inglese britannico; codice, commenti e questo README sono in
    - **Summary**: partita, sistema (Hub o Vault), evento/progetto dello zip, feed e segmenti (fasi nel Vault); avviso se Excel e zip sembrano di partite diverse. Un Excel di un sistema con lo zip dell'altro non si confronta (messaggio).
    - **Banner**: verde *All clear*, giallo *N to confirm*, rosso *N errors*.
    - **To confirm**: nomi quasi uguali (*Possible typo*) o che puntano sempre allo stesso brand sconosciuto (*Possible alias*). *Confirm* li conta come corretti; *Not a typo / Not an alias* come errori. Quando ogni coppia ha una risposta, i refusi confermati partono via mail ai destinatari impostati in Settings e finiscono tra gli alias *in attesa* di Settings. Una conferma vale solo per quel controllo: la coppia viene chiesta di nuovo finché un admin non la rende ufficiale.
+   - **Visual check** (facoltativo): *Start visual check* apre la revisione slot per slot. Ogni slot mostra tutte le sue zone che girano insieme (video muti in loop, immagini ferme), divise in prima fila, seconda fila e statici (nel Vault per Partner), ognuna con il brand che l'Excel chiede e i pulsanti *Correct* / *Wrong* (con una nota facoltativa). Gli slot uguali si vedono una volta sola e un gruppo deciso vale in tutti gli slot dove compare. Ogni *Wrong* diventa un **Error** in *Results* e nel report, per ogni feed, ID e zona in cui va in onda; il *Summary* del report dice quanti slot sono stati rivisti. Le risposte valgono solo per quel controllo e non vanno nello storico né nelle mail. Un video che il browser non sa aprire (es. codec FFV1) si può salvare con *Save file* e aprire con un altro programma.
    - **Results**: un rigo per gruppo (tipo, feed, segmento, colonna Excel, atteso, trovato) con gli ID; filtri per feed e per tipo.
    - **Name variants**: stesso brand scritto in modo diverso, contato come corretto ed elencato per controllo.
    - **Download report**: Excel con *Summary* e *Findings* (una riga per risultato).
@@ -28,9 +29,9 @@ L'interfaccia è in inglese britannico; codice, commenti e questo README sono in
 
 ## Privacy
 
-- I due file si leggono **solo nel browser**: non vengono mai caricati su un server.
+- I due file si leggono **solo nel browser**: non vengono mai caricati su un server. Anche i video e le immagini del *Visual check* si aprono dallo zip già caricato, dentro la pagina.
 - Allo script Google arrivano solo i **numeri** del controllo (celle, errori, refusi…) e, per i refusi/alias confermati, partita, feed, segmento, ID, colonna e i due nomi. Gli alias approvati in Settings stanno nel foglio Google (tab *Aliases*).
-- La pagina ha una Content-Security-Policy: carica solo i propri file e si collega solo allo script Google.
+- La pagina ha una Content-Security-Policy: carica solo i propri file (più i media del *Visual check*, creati nel browser come `blob:`) e si collega solo allo script Google.
 - Le regole delicate (alias ufficiali, zone a regola fissa, indirizzo e codice dello script) sono **cifrate** con la password del team (AES-256-GCM, chiave PBKDF2-SHA256 con 600.000 iterazioni) in `regole/regole.js`.
 
 ## Cosa si controlla
@@ -71,7 +72,7 @@ La password del team sta solo in locale in `regole-sorgente/password.txt` (prima
 | Percorso | Contenuto |
 |---|---|
 | `index.html` | pagina unica (Check / Statistics / Settings) |
-| `app/` | moduli: lettura Excel e AIR (Hub), lettura e confronto Vault, video, confronto, report, cifratura, accesso, schede |
+| `app/` | moduli: lettura Excel e AIR (Hub), lettura e confronto Vault, video, confronto, report, visual check (`revisione.js` schermate e risposte, `revisione-ui.js` pannello), cifratura, accesso, schede |
 | `lib/` | JSZip 3.10.1 e SheetJS 0.20.3 (copiati, nessun CDN) |
 | `regole/regole.js` | regole cifrate |
 | `backend/` | script Google (`Codice.gs`, `appsscript.json`) |

@@ -56,3 +56,39 @@ test('artwork di un’altra zona: coppie reali uguali al calcolo indipendente', 
     });
   }
 });
+
+test('animazioni delle coppie reali: ogni uso non coperto dal visual check ha già un esito', { skip: pronto ? false : 'PC_COPPIE o i dati locali non ci sono' }, async (t) => {
+  const { tipoSegmento } = require('../app/confronto.js');
+  const { segnaposto } = require('../app/zone.js');
+  const { schermate } = require('../app/revisione.js');
+  const regole = JSON.parse(fs.readFileSync(REGOLE, 'utf8'));
+  const attesi = JSON.parse(fs.readFileSync(ATTESI, 'utf8'));
+  const chiave = (...x) => x.join(' ¦ ');
+  for (const squadra of Object.keys(attesi).sort()) {
+    await t.test(squadra, async () => {
+      const { excel, air } = await leggiCoppia(path.join(CARTELLA, squadra));
+      const r = verifica(excel, air, regole);
+      const coperti = new Set(r.animazioni.flatMap((v) => v.zone.map((z) => chiave(v.feed, v.segmento, v.slot, z.zona, z.file))));
+      const segnalati = r.esiti.filter((e) => e.tipo !== 'Correct' && e.tipo !== 'Variant');
+      const scoperti = [];
+      let usi = 0;
+      for (const s of air.stream) {
+        for (const g of s.segmenti) {
+          if (!g.intervalli || !tipoSegmento(g.nome)) continue;
+          g.intervalli.forEach((iv, i) => iv.mappe.forEach((a, z) => {
+            if (segnaposto(a)) return;
+            usi++;
+            const zona = air.zone.get(z);
+            if (coperti.has(chiave(s.nome, g.nome, i, zona, String(a.file).split('/').pop()))) return;
+            if (!segnalati.some((e) => e.feed === s.nome && e.segmento === g.nome && (e.zona === zona || e.zona === '-'))) scoperti.push(chiave(s.nome, g.nome, i, zona, a.ad));
+          }));
+        }
+      }
+      const sc = schermate(r.animazioni);
+      const gruppi = new Set(sc.flatMap((x) => x.gruppi));
+      t.diagnostic(`${squadra}: ${sc.length} schermate, ${gruppi.size} gruppi, ${coperti.size} usi coperti su ${usi}`);
+      assert.ok([...gruppi].every((g) => String(g.atteso).trim() && g.zone.length), 'gruppo senza brand o senza zone');
+      assert.deepEqual(scoperti.slice(0, 10), [], `${scoperti.length} usi senza visual check e senza esito`);
+    });
+  }
+});

@@ -42,6 +42,13 @@
     const regioni = [...stream.regioni];
     const base = tipo === 'HL' ? 0 : 1;
     const nota = (...a) => c.nota(esito(a[0], stream.nome, segmento.nome, ...a.slice(1)));
+    // per il visual check: il gruppo di zone di una fila con il brand che l'Excel chiede (aggancio facoltativo)
+    const vista = (slot, id, fila, colonna, atteso, notaVista, arts) => {
+      if (c.vista) {
+        c.vista({ feed: stream.nome, segmento: segmento.nome, slot, id, gruppo: fila === 1 ? 'First row' : 'Second row', colonna, atteso: String(atteso).trim(), nota: notaVista,
+          zone: arts.map(([zn, a]) => ({ zona: zn, file: String(a.file).split('/').pop() })) });
+      }
+    };
     const led = (z) => ruoloZona(c.zone.get(z), c.angoliStatici, c.prefissoSponsor).startsWith('LED');
     // fila di ogni zona LED usata: dal pacchetto intero (c.filaZona, da verifica) o, da sola, da questo segmento
     const filaZona = c.filaZona || fileDelleZone([segmento], (z) => c.zone.get(z), led);
@@ -100,10 +107,12 @@
           const eRec = ultimaRiga.valori.get(`${r0}|${fila}`);
           if (eRec && arts.every(([, a]) => ['ok', 'variante'].includes(confronta(c, eRec, a)))) {
             nota('Recovery', id, etichetta, '-', `repeat of ID ${ultimaRiga.id}`, String(eRec));
+            vista(idx, id, fila, etichetta, eRec, `repeat of ID ${ultimaRiga.id}`, arts);
             continue;
           }
         }
         // con un brand nell'Excel ogni zona usata di questa fila deve mostrare un artwork, non solo alcune
+        if (e && String(e).trim()) vista(idx, id, fila, etichetta, e, '', arts);
         if (e) {
           filaZona.forEach((f, z) => {
             const a = mappe.get(z);
