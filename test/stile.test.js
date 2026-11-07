@@ -84,3 +84,41 @@ test('fuori dai due temi non ci sono colori scritti a mano', () => {
   const resto = css.replace(blocco(SCURO), '').replace(blocco(CHIARO), '');
   assert.deepEqual(resto.match(/#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(|:\s*(white|black|red|blue|green|gr[ae]y|orange|purple|yellow)\b/gi) || [], []);
 });
+
+// Visual check: dietro gli asset una scacchiera grigio medio con una cornice, uguale nei due temi.
+// Un asset con il fondo nero (LED spenti) o con scritte bianche si stacca comunque e se ne vedono forma e bordi.
+const NERO = [0, 0, 0, 1], BIANCO = [255, 255, 255, 1];
+const rapporto = (a, b) => { const [x, y] = [luce(a), luce(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+
+for (const [nome, t] of Object.entries(temi)) {
+  test(`tema ${nome}: la scacchiera dietro gli asset si stacca dal nero e dal bianco (almeno 3:1) e i due quadri si distinguono`, () => {
+    const quadri = ['--quadro-media-1', '--quadro-media-2'].map((q) => colore(t[q]));
+    quadri.forEach((c, i) => {
+      assert.ok(rapporto(c, NERO) >= 3, `quadro ${i + 1} sul nero: ${rapporto(c, NERO).toFixed(2)}`);
+      assert.ok(rapporto(c, BIANCO) >= 3, `quadro ${i + 1} sul bianco: ${rapporto(c, BIANCO).toFixed(2)}`);
+    });
+    assert.ok(rapporto(quadri[0], quadri[1]) >= 1.2, 'i due quadri sono troppo simili');
+  });
+  test(`tema ${nome}: testi leggibili sulla scheda verde del visual check`, () => {
+    for (const testo of ['--inchiostro', '--inchiostro-2', '--ok']) {
+      const r = contrasto(t, testo, '--ok-tenue');
+      assert.ok(r >= 4.5, `${testo} sul verde: ${r.toFixed(2)}`);
+    }
+  });
+}
+
+test('visual check: scacchiera e cornice dietro video e immagini', () => {
+  const r = /\.rev-media video, \.rev-media img \{([^}]*)\}/.exec(css);
+  assert.ok(r, 'regola dei media mancante');
+  assert.match(r[1], /background: repeating-conic-gradient\(var\(--quadro-media-1\) 0 25%, var\(--quadro-media-2\) 0 50%\) 0 0 \/ 16px 16px;/);
+  assert.match(r[1], /padding: 8px;/);
+  assert.equal(/--fondo-media/.test(css), false, 'il vecchio fondo nero non serve più');
+});
+
+test('visual check tutto Correct: la scheda diventa verde e lo dice anche a parole', () => {
+  const r = /\.scheda\.visivo-fatto \{([^}]*)\}/.exec(css);
+  assert.ok(r, 'regola della scheda verde mancante');
+  assert.match(r[1], /border-color: var\(--bordo-ok\);/);
+  assert.match(r[1], /background-image: linear-gradient\(var\(--ok-tenue\), var\(--ok-tenue\)\);/);
+  assert.match(css, /\.visivo-esito \{[^}]*color: var\(--ok\);[^}]*\}/);
+});

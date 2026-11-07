@@ -54,7 +54,7 @@
   function scheda(ultimo, alCambio) {
     const t = testiScheda(ultimo);
     return el('div', {},
-      el('h2', {}, 'Visual check'),
+      el('h2', {}, 'Visual check', el('span', { class: 'visivo-esito' })),
       el('p', { class: 'nota' }, 'First the static assets, which stay the same for the whole match, then each slot with its LED rows: watch them next to the brand the Excel asks for and mark each group Correct or Wrong. Wrong groups are added to the results as errors. The files never leave this browser.'),
       el('p', { class: 'nota' }, 'Meanwhile the page reads the brand names written in the animations: when it reads the brand the Excel asks for in every file of a group, the group is marked Correct by itself (read automatically). It confirms the brand, not its version, and you can still change it.'),
       el('div', { class: 'visivo-riga' },
@@ -63,10 +63,20 @@
       el('p', { class: 'piccolo visivo-lettura' }, t.lettura));
   }
 
+  // Ogni gruppo ha una risposta e sono tutte Correct (anche lette in automatico): scheda verde e "all correct" accanto al titolo.
+  function segnaScheda(box, ultimo) {
+    if (!box) return;
+    const fatto = PC.revisione.tuttoCorretto(avanzamento(ultimo));
+    box.classList.toggle('visivo-fatto', fatto);
+    const esito = box.querySelector('.visivo-esito');
+    if (esito) esito.textContent = fatto ? ' · all correct' : '';
+  }
+
   // Dopo ogni file letto: testi della scheda (senza ridisegnarla) e gruppi della schermata aperta.
   function aggiornaLettura(ultimo) {
     const box = $('check-visivo');
     const t = testiScheda(ultimo);
+    segnaScheda(box, ultimo);
     [['.visivo-avanzamento', t.avanzamento], ['.visivo-lettura', t.lettura], ['.visivo-apri', t.bottone]].forEach(([sel, testo]) => {
       const n = box && box.querySelector(sel);
       if (n) n.textContent = testo;
@@ -288,5 +298,5 @@
     return v;
   }
 
-  PC.revisioneUi = { scheda, apri, chiudi, aggiornaLettura };
+  PC.revisioneUi = { scheda, segnaScheda, apri, chiudi, aggiornaLettura };
 })(window.PC = window.PC || {});

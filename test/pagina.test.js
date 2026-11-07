@@ -42,12 +42,12 @@ test('visual check: scheda, pannello e script nella pagina', () => {
   assert.ok(HTML.includes('id="revisione"'));
   assert.ok(HTML.indexOf('app/revisione.js') > HTML.indexOf('app/report.js'));
   assert.ok(HTML.indexOf('app/revisione-ui.js') < HTML.indexOf('app/check.js'));
-  assert.equal(/\?v=(?!21")/.test(HTML), false, 'versione diversa da 21');
+  assert.equal(/\?v=(?!22")/.test(HTML), false, 'versione diversa da 22');
 });
 
 test('grafica della Piattaforma: tema applicato nel <head> prima del CSS', () => {
   const testa = HTML.slice(0, HTML.indexOf('</head>'));
-  assert.ok(testa.includes('<script src="app/tema.js?v=21"></script>'), 'tema.js nel head');
+  assert.ok(testa.includes('<script src="app/tema.js?v=22"></script>'), 'tema.js nel head');
   assert.ok(testa.indexOf('app/tema.js') < testa.indexOf('app/stile.css'), 'tema.js prima del CSS');
 });
 
@@ -91,4 +91,17 @@ test('lettura automatica: i file della libreria che lo script chiede sono nel si
   const chiesti = [...ui.matchAll(/'([a-z0-9.-]+\.(?:js|gz))'/g)].map((m) => m[1]);
   assert.deepEqual(chiesti.sort(), ['tesseract-core-simd-lstm.wasm.js', 'tesseract.min.js', 'worker.min.js']);
   chiesti.concat(['eng.traineddata.gz', 'LICENSE.md', 'ORIGINE.txt']).forEach((f) => assert.ok(fs.existsSync(path.join(radice, 'lib/tesseract', f)), f));
+});
+
+test('visual check tutto Correct: la scheda si segna verde quando si ridisegna e quando arriva una lettura automatica', () => {
+  const ui = fs.readFileSync(path.join(__dirname, '..', 'app', 'revisione-ui.js'), 'utf8');
+  const check = fs.readFileSync(path.join(__dirname, '..', 'app', 'check.js'), 'utf8');
+  const segna = /function segnaScheda\(box, ultimo\) \{([\s\S]*?)\n  \}/.exec(ui);
+  assert.ok(segna, 'segnaScheda mancante');
+  assert.match(segna[1], /PC\.revisione\.tuttoCorretto\(avanzamento\(ultimo\)\)/);
+  assert.match(segna[1], /classList\.toggle\('visivo-fatto', /);
+  assert.match(segna[1], /\.visivo-esito/);
+  assert.match(ui, /PC\.revisioneUi = \{[^}]*\bsegnaScheda\b[^}]*\}/);
+  assert.match(/function aggiornaLettura\(ultimo\) \{([\s\S]*?)\n  \}/.exec(ui)[1], /segnaScheda\(box, ultimo\)/);
+  assert.match(/function disegnaVisivo\(\) \{([\s\S]*?)\n  \}/.exec(check)[1], /PC\.revisioneUi\.segnaScheda\(box, ultimo\)/);
 });

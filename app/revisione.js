@@ -116,6 +116,7 @@
       sbagliati: unici.filter((g) => (risposte.get(g.chiave) || {}).esito === 'wrong').length,
       risposti: unici.filter((g) => risposte.has(g.chiave)).length,
       automatici: unici.filter((g) => (risposte.get(g.chiave) || {}).auto).length,
+      gruppi: unici.length,
       statici: statici.length,
       staticiRisposti: statici.filter((g) => risposte.has(g.chiave)).length,
     };
@@ -124,6 +125,9 @@
   const plurale = (n, uno, molti) => `${n} ${n === 1 ? uno : molti}`;
 
   // prima di iniziare: "22 slots and 7 static assets to review"
+  // Visual check finito e tutto giusto: ogni gruppo (statici e slot) ha una risposta e nessuna è Wrong; le letture automatiche valgono Correct.
+  const tuttoCorretto = (av) => av.gruppi > 0 && av.risposti === av.gruppi && av.sbagliati === 0;
+
   function testoDaFare(av) {
     const parti = [];
     if (av.totale) parti.push(plurale(av.totale, 'slot', 'slots'));
@@ -153,5 +157,5 @@
     });
   }
 
-  return { NOME: 'revisione', schermate, doveGruppo, avanzamento, testoAvanzamento, testoDaFare, esitiVisivi };
+  return { NOME: 'revisione', schermate, doveGruppo, avanzamento, tuttoCorretto, testoAvanzamento, testoDaFare, esitiVisivi };
 });

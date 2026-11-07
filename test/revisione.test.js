@@ -1,7 +1,7 @@
 // Visual check (app/revisione.js): statici in una prima schermata, schermate degli slot senza doppioni, avanzamento e righe Error dalle risposte.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { schermate, avanzamento, esitiVisivi, testoAvanzamento, testoDaFare, doveGruppo } = require('../app/revisione.js');
+const { schermate, avanzamento, esitiVisivi, testoAvanzamento, testoDaFare, doveGruppo, tuttoCorretto } = require('../app/revisione.js');
 
 const voce = ({ feed = 'EU', segmento = '1st Half', slot = 1, id, gruppo = 'First row', colonna = 'F · EUROPE – First row', atteso = 'ALFA', nota = '', zone = [['GL_SX_1', 'a.mp4']] } = {}) => ({
   feed, segmento, slot, id: id === undefined ? slot : id, gruppo, colonna, atteso, nota, zone: zone.map(([zona, file]) => ({ zona, file })),
@@ -100,11 +100,11 @@ test('avanzamento e testi: statici contati a parte dagli slot', () => {
   const alfa = s[1].gruppi[0];
   const beta = s[2].gruppi[0];
   const vuoto = avanzamento(s, new Map());
-  assert.deepEqual(vuoto, { totale: 2, riviste: 0, sbagliati: 0, risposti: 0, automatici: 0, statici: 2, staticiRisposti: 0 });
+  assert.deepEqual(vuoto, { totale: 2, riviste: 0, sbagliati: 0, risposti: 0, automatici: 0, gruppi: 4, statici: 2, staticiRisposti: 0 });
   assert.equal(testoAvanzamento(vuoto), 'not started');
   assert.equal(testoDaFare(vuoto), '2 slots and 2 static assets to review');
   const parte = avanzamento(s, risposte([delta.chiave, 'correct'], [gamma.chiave, 'wrong'], [alfa.chiave, 'correct']));
-  assert.deepEqual(parte, { totale: 2, riviste: 1, sbagliati: 1, risposti: 3, automatici: 0, statici: 2, staticiRisposti: 2 });
+  assert.deepEqual(parte, { totale: 2, riviste: 1, sbagliati: 1, risposti: 3, automatici: 0, gruppi: 4, statici: 2, staticiRisposti: 2 });
   assert.equal(testoAvanzamento(parte), 'static assets 2 of 2 · 1 of 2 slots reviewed · 1 wrong');
   assert.equal(testoAvanzamento(avanzamento(s, risposte([beta.chiave, 'correct']))), 'static assets 0 of 2 · 1 of 2 slots reviewed · 0 wrong');
   const soloStatici = schermate([statico(1, 'CC', 'cc.png', 'DELTA', 'STATIC B3 · CENTRE CIRCLE')]);
@@ -116,6 +116,24 @@ test('avanzamento e testi: statici contati a parte dagli slot', () => {
   assert.deepEqual(schermate([]), []);
   assert.equal(testoAvanzamento(avanzamento([], new Map())), 'nothing to review');
   assert.equal(testoDaFare(avanzamento([], new Map())), 'nothing to review');
+});
+
+test('tutto corretto: ogni gruppo, statici e slot, ha una risposta e nessuna è Wrong (anche se letta in automatico)', () => {
+  const s = schermate([
+    voce({ slot: 1, atteso: 'ALFA' }), statico(1, 'CC', 'cc.png', 'DELTA', 'STATIC B3 · CENTRE CIRCLE'),
+    voce({ slot: 2, atteso: 'BETA', zone: [['GL_SX_1', 'b.mp4']] }),
+  ]);
+  const [delta] = s[0].gruppi;
+  const alfa = s[1].gruppi[0];
+  const beta = s[2].gruppi[0];
+  const auto = { esito: 'correct', nota: '', auto: 'ALFA' };
+  const conta = (r) => tuttoCorretto(avanzamento(s, r));
+  assert.equal(conta(new Map()), false, 'niente risposte');
+  assert.equal(conta(risposte([delta.chiave, 'correct'], [alfa.chiave, 'correct'])), false, 'manca uno slot');
+  assert.equal(conta(risposte([delta.chiave, 'correct'], [alfa.chiave, 'correct'], [beta.chiave, 'correct'])), true, 'tutto a mano');
+  assert.equal(conta(new Map([[delta.chiave, { esito: 'correct', nota: '' }], [alfa.chiave, auto], [beta.chiave, { esito: 'correct', nota: '' }]])), true, 'con una lettura automatica');
+  assert.equal(conta(risposte([delta.chiave, 'correct'], [alfa.chiave, 'wrong'], [beta.chiave, 'correct'])), false, 'un Wrong');
+  assert.equal(tuttoCorretto(avanzamento([], new Map())), false, 'niente da rivedere');
 });
 
 test('risposte automatiche (marchio letto): contate a parte, dette nel testo, nessuna riga Error', () => {

@@ -242,6 +242,7 @@
     const box = $('check-visivo');
     box.hidden = !ultimo.schermate.length;
     box.replaceChildren(...(box.hidden ? [] : [PC.revisioneUi.scheda(ultimo, ricalcola)]));
+    PC.revisioneUi.segnaScheda(box, ultimo);
   }
 
   function disegna() {
