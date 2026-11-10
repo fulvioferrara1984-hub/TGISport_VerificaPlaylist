@@ -98,13 +98,15 @@
     const animazioni = [];
     c.vista = (v) => animazioni.push(v);
     const abituali = air.formatiMedia ? formatiDelleZone(air.stream, air.formatiMedia) : new Map();
-    const tabelle = Object.values(excel.partite).concat([excel.hl]);
+    const tabelle = Object.values(excel.partite).concat(excel.hl ? [excel.hl] : []);
+    // playlist a feed unico: i feed del pacchetto non sono regioni, la colonna dei brand vale per tutti
+    const flussi = excel.feedUnico ? air.stream.map((s) => ({ ...s, regioni: new Set([excel.feedUnico]) })) : air.stream;
     const nomiExcel = new Set();
     tabelle.forEach((t) => t.righe.forEach((r) => r.valori.forEach((v) => { if (v) nomiExcel.add(String(v).trim()); })));
     excel.statici.forEach((s) => { if (s.valore) nomiExcel.add(String(s.valore).trim()); });
 
     const coperte = new Set();
-    air.stream.forEach((s) => s.regioni.forEach((r) => coperte.add(r)));
+    flussi.forEach((s) => s.regioni.forEach((r) => coperte.add(r)));
     // regioni che devono avere un feed: quelle con virtual nell'Excel, più il Domestico se ha asset statici
     // (gli statici delle altre regioni sono spesso compilati dal template anche per feed che non esistono)
     const conContenuto = contenuto(tabelle);
@@ -114,22 +116,22 @@
     });
 
     // righe dell'Excel con un ID non numerico: restano al loro posto, ma vanno sistemate
-    (excel.avvisi || []).forEach((a) => esiti.push({ tipo: 'Warning', feed: '-', segmento: '-', id: a.id, colonna: `${a.foglio} · A${a.riga}`, zona: '-', atteso: 'numeric ID', trovato: a.id }));
+    (excel.avvisi || []).forEach((a) => esiti.push({ tipo: 'Warning', feed: '-', segmento: '-', id: a.id, colonna: `${a.foglio} · ${a.colonnaId || 'A'}${a.riga}`, zona: '-', atteso: 'numeric ID', trovato: a.id }));
     // pacchetto senza file media: un solo errore invece di uno per artwork
     if (air.media instanceof Set && air.media.size === 0) {
       esiti.push({ tipo: 'Error', feed: '-', segmento: '-', id: '-', colonna: '-', zona: '-', atteso: 'media files in advertisements/', trovato: 'none' });
     }
 
-    // ogni feed deve avere il pre-match, la partita (intera o i due tempi, come nell'Excel) e gli highlights
-    const richiesti = ['PRE'].concat(Object.keys(excel.partite), ['HL']);
-    for (const stream of air.stream) {
+    // ogni feed deve avere il pre-match, la partita (intera o i due tempi, come nell'Excel) e, se l'Excel li ha, gli highlights
+    const richiesti = ['PRE'].concat(Object.keys(excel.partite), excel.hl ? ['HL'] : []);
+    for (const stream of flussi) {
       const presenti = new Set(stream.segmenti.map((g) => tipoSegmento(g.nome)));
       richiesti.filter((t) => !presenti.has(t)).forEach((t) => {
         esiti.push({ tipo: 'Error', feed: stream.nome, segmento: NOMI_SEGMENTO[t], id: '-', colonna: '-', zona: '-', atteso: 'AIR sequence', trovato: 'missing' });
       });
     }
 
-    for (const stream of air.stream) {
+    for (const stream of flussi) {
       c.cella = null;
       const attesi = attesiStatici(excel.statici, stream.regioni, c.nota, stream.nome);
       for (const seg of stream.segmenti) {
@@ -139,6 +141,7 @@
         const tipo = tipoSegmento(seg.nome);
         if (!tipo) { nota('Warning', '-', '-', '-', 'known segment', 'not checked'); continue; }
         if (tipo.startsWith('MATCH') && !excel.partite[tipo]) { nota('Error', '-', '-', '-', `Excel sheet for ${seg.nome}`, 'missing'); continue; }
+        if (tipo === 'HL' && !excel.hl) { nota('Warning', '-', '-', '-', 'Highlights in the Excel', 'not checked'); continue; }
         seg.intervalli.forEach((iv, i) => {
           const id = tipo.startsWith('MATCH') ? i : i + 1; // come negli statici: lo slot 0 delle partite è il lead-in
           const dopo = seg.intervalli[i + 1];

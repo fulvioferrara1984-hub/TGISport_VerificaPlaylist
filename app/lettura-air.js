@@ -41,7 +41,9 @@
       const nome = /name = (.*)/.exec(m[2]);
       const a = /advertiser = (\d+)/.exec(m[2]);
       const f = /file = (.*)/.exec(m[2]);
-      ads.set(m[1], { ad: nome ? nome[1].trim() : '', advertiser: a ? inserzionisti.get(a[1]) || null : null, file: f ? f[1].trim() : '' });
+      const nomeAd = nome ? nome[1].trim() : '';
+      // alcuni pacchetti chiamano "blank" il Blank_Generic: per il controllo è lo stesso
+      ads.set(m[1], { ad: k(nomeAd) === 'BLANK' ? 'Blank_Generic' : nomeAd, advertiser: a ? inserzionisti.get(a[1]) || null : null, file: f ? f[1].trim() : '' });
     }
     const intervalli = [];
     for (const m of testo.matchAll(/^interval = (\d+), (\d+), (.*?)\n\{([\s\S]*?)\}/gm)) {

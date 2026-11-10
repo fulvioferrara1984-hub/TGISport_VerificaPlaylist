@@ -73,3 +73,12 @@ test('due zone con lo stesso formato possono ospitare lo stesso artwork', () => 
   const f = { larghezza: 2430, altezza: 96 };
   assert.equal(fattoPerAltraZona(f, 1, new Map([[1, f], [2, { ...f }]])), false);
 });
+
+test('zone del feed unico: lati LED, centreboard e texture del prato', () => {
+  assert.equal(ruoloZona('LEFT LED'), 'LED1');
+  assert.equal(ruoloZona('RIGHT LED'), 'LED1');
+  assert.equal(ruoloZona('CENTREBOARD'), 'CB');
+  assert.equal(ruoloZona('Centre Board'), 'CB');
+  assert.equal(ruoloZona('GRASS_LSX_MEDIUM'), 'TEXTURE');
+  assert.equal(ruoloZona('GRASS_LDX_DARK'), 'TEXTURE');
+});

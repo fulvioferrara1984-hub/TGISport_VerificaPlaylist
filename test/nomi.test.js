@@ -70,3 +70,33 @@ test('confini: una parola intera basta anche se le stesse lettere compaiono dent
   assert.equal(confronta('ZETA 150_J', art('ZETA-150XYZ_GL2'), ctx), 'variante'); // 150 e XYZ sono parole diverse
   assert.equal(confronta('B_', art('BETAX_CHINA_GC1'), ctx), 'errore'); // una lettera sola non è un brand
 });
+
+test('suffissi _LED e _CENTREBOARD: dicono la posizione, non il brand', () => {
+  assert.equal(chiaveBrand('ALFA_LED').chiave, 'ALFA');
+  assert.equal(chiaveBrand('ALFA_BETA_CENTREBOARD').chiave, 'ALFABETA');
+  assert.equal(confronta('Alfa', art('ALFA_LED'), ctx), 'ok');
+  assert.equal(confronta('Alfa Beta', art('ALFA_BETA_LED'), ctx), 'ok');
+  assert.equal(confronta('VX', art('VX_LED'), ctx), 'ok');
+  assert.equal(confronta('Alfa', art('ALFA_CENTREBOARD'), ctx), 'ok');
+  assert.equal(confronta('Alfa', art('OMEGA_LED'), ctx), 'errore');
+});
+
+test('lettere accentate e nordiche contano come quelle semplici', () => {
+  assert.equal(k('Zörro'), 'ZORRO');
+  assert.equal(k('PIÙ'), 'PIU');
+  assert.equal(k('Søren'), 'SOREN');
+  assert.equal(k('Æther'), 'AETHER');
+  assert.equal(confronta('Zörro', art('ZORRO_LED'), ctx), 'ok');
+  assert.equal(confronta('Zörro_XYZ', art('ZORRO_LED'), ctx), 'variante');
+});
+
+test('nome Excel con una sigla in più: variante; due nomi con la parte finale in comune non si confondono', () => {
+  assert.equal(confronta('Megasequenza_XYZ', art('MEGASEQUENZA_LED'), ctx), 'variante');
+  assert.equal(confronta('Sequenza_XYZ', art('SEQUENZA_LED'), ctx), 'variante');
+  assert.equal(confronta('Sequenza_XYZ', art('MEGASEQUENZA_LED'), ctx), 'errore');
+  assert.equal(confronta('Megasequenza_XYZ', art('SEQUENZA_LED'), ctx), 'errore');
+});
+
+test('refuso nell’Excel con artwork _LED: possibile refuso', () => {
+  assert.equal(confronta('ALFA FONDAZONE', art('ALFA_FONDAZIONE_LED'), ctx), 'refuso');
+});

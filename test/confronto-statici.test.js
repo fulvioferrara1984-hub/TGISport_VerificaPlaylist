@@ -122,3 +122,35 @@ test('animazioni: lead-in e statici senza brand atteso → nessuna voce', () => 
   const c = prova({ zone: ['CLUB_UDX'], attesi: { MAT3: st('ALFA', 'B6', 'CLUB MAT 3') }, slot: [{ mappe: { 0: art('ALFA_UDX') } }] });
   assert.deepEqual(c.animazioni, []);
 });
+
+test('centreboard: il brand della nota in ogni slot della partita, mai nel lead-in', () => {
+  const CB = st('ALFA', 'N14', 'CENTREBOARD');
+  const bene = prova({ zone: ['LEFT LED', 'CENTREBOARD'], attesi: { CB }, slot: [{ mappe: { 1: BLANK } }, { mappe: { 1: art('ALFA_CENTREBOARD') } }] });
+  assert.deepEqual(bene.esiti, []);
+  assert.deepEqual(bene.animazioni.map((v) => [v.gruppo, v.atteso, v.zone[0].zona]), [['Statics', 'ALFA', 'CENTREBOARD']]);
+  const altro = prova({ zone: ['LEFT LED', 'CENTREBOARD'], attesi: { CB }, slot: [{ mappe: {} }, { mappe: { 1: art('OMEGA_CENTREBOARD') } }, { mappe: { 1: BLANK } }] });
+  assert.deepEqual(breve(altro.esiti), [
+    { tipo: 'Error', id: 1, colonna: 'STATIC N14 · CENTREBOARD', zona: 'CENTREBOARD', atteso: 'ALFA', trovato: 'OMEGA_CENTREBOARD' },
+    { tipo: 'Error', id: 2, colonna: 'STATIC N14 · CENTREBOARD', zona: 'CENTREBOARD', atteso: 'ALFA', trovato: 'nothing' }]);
+});
+
+test('centreboard senza nota nell’Excel: non si controlla', () => {
+  const c = prova({ zone: ['CENTREBOARD'], attesi: { CB: st(null, '', 'CB') }, slot: [{ mappe: {} }, { mappe: { 0: art('OMEGA_CENTREBOARD') } }] });
+  assert.deepEqual(c.esiti, []);
+});
+
+test('texture del prato: nessun controllo', () => {
+  const c = prova({ zone: ['GRASS_LSX_MEDIUM', 'GRASS_LDX_DARK'], attesi: {}, slot: [{ mappe: { 0: art('GRASS_MEDIUM') } }, { mappe: { 0: art('GRASS_MEDIUM'), 1: art('GRASS_DARK') } }] });
+  assert.deepEqual(c.esiti, []);
+  const pre = prova({ zone: ['GRASS_LSX_MEDIUM'], tipo: 'PRE', attesi: {}, slot: [{ mappe: { 0: art('GRASS_MEDIUM') } }] });
+  assert.deepEqual(pre.esiti, []);
+});
+
+test('attesi: il centreboard del feed unico', () => {
+  const voce = st('ALFA', 'N14', 'CENTREBOARD');
+  const esiti = [];
+  const a = attesiStatici(new Map([['CB|UNICO', voce]]), new Set(['UNICO']), (e) => esiti.push(e), 'Feed');
+  assert.deepEqual(a.CB, voce);
+  assert.deepEqual(esiti, []);
+  assert.deepEqual(attesiStatici(new Map(), new Set(['UNICO']), (e) => esiti.push(e), 'Feed').CB, { valore: null, cella: '', etichetta: 'CB' });
+});

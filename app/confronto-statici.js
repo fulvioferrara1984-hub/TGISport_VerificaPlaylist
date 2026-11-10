@@ -13,7 +13,7 @@
   const { ruoloZona, MAT_ZONA } = dip('zone');
   const { NOME_REG, confronta } = dip('confronto-virtual');
 
-  const VOCI = ['CC', 'MAT1', 'MAT2', 'MAT3', 'MAT4', 'ADD', 'LC'];
+  const VOCI = ['CC', 'MAT1', 'MAT2', 'MAT3', 'MAT4', 'ADD', 'LC', 'CB'];
 
   // Valori di STATIC ASSETS attesi per uno stream: le regioni che copre devono avere gli stessi valori.
   function attesiStatici(statici, regioni, nota, feed) {
@@ -66,7 +66,8 @@
             if (es === 'variante') nota('Variant', id, etichetta(voce), zn, String(atteso), a.ad);
             else if (es !== 'ok') nota(es === 'errore' ? 'Error' : 'Possible typo', id, etichetta(voce), zn, String(atteso || 'Circle_Empty'), a.ad);
           }
-        } else if (['SPONSOR', 'CLUB', 'ADD', 'LC'].includes(ruolo)) {
+        } else if (['SPONSOR', 'CLUB', 'ADD', 'LC', 'CB'].includes(ruolo)) {
+          if (ruolo === 'CB' && !attesi.CB.valore) continue; // senza la nota nell'Excel il centreboard non si controlla
           c.cella = ++c.celle.n;
           let atteso; let col;
           if (tipo === 'PRE' || leadIn) { atteso = null; col = '-'; }

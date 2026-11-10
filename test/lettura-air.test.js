@@ -133,3 +133,13 @@ test('leggiAir: leggiMedia legge un file di advertisements/ solo quando serve; n
     spia.ripristina();
   }
 });
+
+test('ad che si chiama blank, in minuscolo: è il Blank di sempre; un brand che lo contiene resta suo', () => {
+  const testo = ['advertiser = 1', '{', '    name = blank', '}', '', 'ad = 2', '{', '    name = blank', '    advertiser = 1', '    file = ../advertisements/1_blank.png', '}', '',
+    'advertiser = 3', '{', '    name = BLANKET', '}', '', 'ad = 4', '{', '    name = BLANKET_LED', '    advertiser = 3', '    file = ../advertisements/2_blanket.mp4', '}', '',
+    'interval = 0, 30000, blank', '{', '    map = 2 to 0', '    map = 4 to 1', '}', ''].join('\n');
+  const [iv] = parseSequenza(testo);
+  assert.equal(iv.mappe.get(0).ad, 'Blank_Generic');
+  assert.equal(iv.mappe.get(0).file, '../advertisements/1_blank.png');
+  assert.equal(iv.mappe.get(1).ad, 'BLANKET_LED');
+});

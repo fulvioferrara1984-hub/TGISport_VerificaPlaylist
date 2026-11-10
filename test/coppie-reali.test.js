@@ -92,3 +92,19 @@ test('animazioni delle coppie reali: ogni uso non coperto dal visual check ha gi
     });
   }
 });
+
+// Excel a foglio unico: il prototipo Python non legge questo formato, i numeri attesi sono stati controllati a mano riga per riga.
+// Solo in locale: test/dati-locali/attesi-feed-unico.json = { cartella: { celle, conteggi } }.
+const ATTESI_UNICO = path.join(__dirname, 'dati-locali', 'attesi-feed-unico.json');
+test('Excel a foglio unico: coppie reali', { skip: CARTELLA && fs.existsSync(ATTESI_UNICO) && fs.existsSync(REGOLE) ? false : 'PC_COPPIE o i dati locali non ci sono' }, async (t) => {
+  const attesi = JSON.parse(fs.readFileSync(ATTESI_UNICO, 'utf8'));
+  const regole = JSON.parse(fs.readFileSync(REGOLE, 'utf8'));
+  for (const cartella of Object.keys(attesi).sort()) {
+    await t.test(cartella, async () => {
+      const { excel, air } = await leggiCoppia(path.join(CARTELLA, cartella));
+      const r = verifica(excel, air, regole);
+      assert.equal(r.celle, attesi[cartella].celle);
+      assert.deepEqual(r.riepilogo.conteggi, attesi[cartella].conteggi);
+    });
+  }
+});

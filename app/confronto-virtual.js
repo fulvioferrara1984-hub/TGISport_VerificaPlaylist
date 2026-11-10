@@ -13,7 +13,7 @@
   const { ruoloZona, filaArtwork, fileDelleZone } = dip('zone');
 
   const NOME_REG = {
-    NA: 'NORTH AMERICA', CSA: 'CENTRAL & SOUTH AMERICA', EU: 'EUROPE', MENA: 'MENA+SSA', ASIA: 'ASIA', FE: 'FAR EAST', VN: 'VIETNAM', DOM: 'DOMESTIC',
+    NA: 'NORTH AMERICA', CSA: 'CENTRAL & SOUTH AMERICA', EU: 'EUROPE', MENA: 'MENA+SSA', ASIA: 'ASIA', FE: 'FAR EAST', VN: 'VIETNAM', DOM: 'DOMESTIC', UNICO: 'VIRTUAL FEED',
   };
 
   // Lettera della colonna Excel da un indice 0-based (0 → A, 26 → AA).
@@ -53,15 +53,18 @@
     // fila di ogni zona LED usata: dal pacchetto intero (c.filaZona, da verifica) o, da sola, da questo segmento
     const filaZona = c.filaZona || fileDelleZone([segmento], (z) => c.zone.get(z), led);
     c.cella = null; // risultati fuori dalle celle (righe senza slot, avvisi): senza numero di cella
-    if (righe.length && righe[0].id !== 1) nota('Warning', righe[0].id, `A${righe[0].riga} · ID`, '-', 'IDs start at 1', `starts at ${righe[0].id}`);
+    if (righe.length && righe[0].id !== 1) nota('Warning', righe[0].id, `${tabella.colonnaId || 'A'}${righe[0].riga} · ID`, '-', 'IDs start at 1', `starts at ${righe[0].id}`);
     const piena = (r) => regioni.some((g) => r.valori.get(`${g}|1`) || r.valori.get(`${g}|2`));
     const piene = righe.map((r, i) => (piena(r) ? i + 1 : 0)).filter(Boolean);
     const ultima = piene.length ? piene[piene.length - 1] : null;
     const nZip = iv.length - base;
+    const ciclo = tabella.cicloRecovery || 1; // quante righe, in fondo a quelle compilate, ripete il recupero
     for (let pos = 1; pos <= Math.max(righe.length, nZip); pos++) {
       c.cella = null;
       const idx = pos - 1 + base;
-      const riga = pos <= righe.length ? righe[pos - 1] : null;
+      let riga = pos <= righe.length ? righe[pos - 1] : null;
+      // playlist col recupero: uno slot oltre l'ultima riga dell'Excel si controlla come una riga vuota
+      if (!riga && ciclo > 1 && idx < iv.length) riga = { id: `slot ${pos}`, riga: null, durataMs: iv[idx].durata, durataTesto: '', valori: new Map() };
       const id = riga ? riga.id : `slot ${pos}`;
       if (idx >= iv.length || !riga) {
         const pienaX = riga && piena(riga);
@@ -72,7 +75,7 @@
       }
       const { durata, mappe } = iv[idx];
       c.cella = ++c.celle.n;
-      if (riga.durataMs !== durata) nota('Error', id, `C${riga.riga} · Duration`, '-', riga.durataTesto, secondi(durata));
+      if (riga.durataMs !== durata) nota('Error', id, `${tabella.colonnaDurata || 'C'}${riga.riga} · Duration`, '-', riga.durataTesto, secondi(durata));
       const trovati = { 1: [], 2: [] };
       mappe.forEach((a, z) => {
         if (!led(z)) return;
@@ -103,7 +106,7 @@
           continue;
         }
         if (!e && ultima && pos > ultima && tipo !== 'HL') {
-          const ultimaRiga = righe[ultima - 1];
+          const ultimaRiga = righe[Math.max(0, ultima - ciclo + ((pos - ultima - 1) % ciclo))]; // la riga di cui questo slot è il turno
           const eRec = ultimaRiga.valori.get(`${r0}|${fila}`);
           if (eRec && arts.every(([, a]) => ['ok', 'variante'].includes(confronta(c, eRec, a)))) {
             nota('Recovery', id, etichetta, '-', `repeat of ID ${ultimaRiga.id}`, String(eRec));

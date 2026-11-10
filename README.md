@@ -2,7 +2,7 @@
 
 Pagina web che confronta la **playlist Excel** di una partita con il **pacchetto** (`.zip`) generato da quella playlist, e dice se e dove differiscono. Funziona con due sistemi, riconosciuti da soli dal contenuto dei file:
 
-- **Hub**: Excel con il foglio PLAYLIST e **AIR package** (`event.hdm`, sequenze `.hdm`, `advertisements/`);
+- **Hub**: Excel con il foglio PLAYLIST, oppure con un solo foglio che ha primo e secondo tempo affiancati e una sola colonna *VIRTUAL FEED*, e **AIR package** (`event.hdm`, sequenze `.hdm`, `advertisements/`);
 - **Vault**: Excel con un foglio per feed (*Slot · Clock · Time Phase · Time Phase Slot · Duration* e, per ogni zona, *File Name* e *Partner/Shared*) e pacchetto con `project.json`, `playlists/*.json` e `assets/`.
 
 L'Excel comanda: ogni differenza è un errore del pacchetto, salvo i casi in cui l'Excel stesso è incoerente.
@@ -45,6 +45,7 @@ La grafica è quella della Piattaforma TGI Sport: menu laterale (sotto i 1024 px
 - **Asset statici** in ogni slot dei tre segmenti: centro campo (solo nel secondo slot del pre-match), CLUB MAT, zone a regola fissa (sponsor diverso per Domestico, Far East e altri feed), ADDITIONAL (anche su RSX/RDX), LOWER CORNER.
 - **Pacchetto**: file media e sequenze presenti, feed presenti per le regioni con contenuto. Un segmento con un nome che non si riconosce non viene controllato (avviso).
 - **Excel**: il foglio highlights è quello che si chiama HL/HIGHLIGHT, altrimenti il primo rimasto con la colonna ID; una riga con un ID non numerico resta al suo posto, con un avviso.
+- **Excel a foglio unico** (primo e secondo tempo affiancati, riconosciuto dal contenuto del primo foglio; gli altri fogli non si guardano): la colonna *VIRTUAL FEED* vale per ogni feed del pacchetto e si confronta con le zone LED laterali; non ci sono asset statici né highlights da aspettarsi. Una cella `CB: <brand>` dice il brand della zona CENTREBOARD per tutta la partita (senza la nota la zona non si controlla, e nel visual check compare tra gli asset statici); le zone GRASS_ sono texture del prato e non si controllano. Dopo l'ultima riga compilata, anche oltre le righe dell'Excel, gli slot che ripetono in alternanza le ultime due righe sono *Recovery*; un altro brand è un **Error**.
 - **Nomi**: un nome vale come variante solo a confini di parola (parole intere, parole che insieme ne compongono una, o abbreviazioni di almeno 4 lettere e il 60% della parola).
 - **Minuti di recupero**: dopo l'ultima riga piena dell'Excel lo zip può ripetere lo stesso brand fino all'ultimo slot (*Recovery*, avviso).
 

@@ -13,6 +13,8 @@
   function ruoloZona(nome, angoliStatici, prefissoSponsor) {
     const u = String(nome).toUpperCase();
     if (u === 'CC') return 'CC';
+    if (u.replace(/[^A-Z]/g, '') === 'CENTREBOARD') return 'CB';
+    if (u.startsWith('GRASS_')) return 'TEXTURE'; // texture del prato: non è pubblicità, non si controlla
     if (u === 'RSX' || u === 'RDX') return 'ADD';
     if (angoliStatici && /^LC_(SX|DX)_1$/.test(u)) return 'LC';
     if (prefissoSponsor && u.startsWith(String(prefissoSponsor).toUpperCase())) return 'SPONSOR';

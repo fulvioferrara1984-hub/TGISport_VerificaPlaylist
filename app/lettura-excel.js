@@ -1,4 +1,5 @@
-/* Playlist Check — lettura della playlist Excel (fogli PLAYLIST / 1ST HALF / 2ND HALF, STATIC ASSETS, highlights). */
+/* Playlist Check — lettura della playlist Excel: fogli PLAYLIST / 1ST HALF / 2ND HALF, STATIC ASSETS e highlights,
+   oppure un solo foglio con primo e secondo tempo affiancati e una sola colonna di brand (feed unico). */
 (function (radice, fabbrica) {
   const m = fabbrica(radice);
   if (typeof module === 'object' && module.exports) module.exports = m;
@@ -10,6 +11,8 @@
   const dip = (nome) => (typeof module === 'object' && module.exports ? require('./' + nome + '.js')
     : radice.PC[nome.replace(/-(\w)/g, (_, c) => c.toUpperCase())]);
   const { k, vuoto } = dip('nomi');
+
+  const REGIONE_UNICA = 'UNICO'; // playlist a feed unico: la colonna dei brand non è di una regione e vale per ogni feed del pacchetto
 
   // Intestazioni delle regioni (si ignorano "VIRTUAL", maiuscole, spazi e punteggiatura) → sigla.
   const REG = {
@@ -86,9 +89,16 @@
       const sotto = k(valore(testa + 1, c));
       if (ultima && ultima !== 'LED' && (sotto === 'PRIMAFILA' || sotto === 'SECONDAFILA')) colonne.set(`${ultima}|${sotto === 'PRIMAFILA' ? 1 : 2}`, c);
     }
+    const righe = leggiRighe({ nome, valore, da: testa + 2, a: nRighe, colonne, avvisi });
+    const soloPrimaFila = ![...colonne.keys()].some((c) => c.endsWith('|2'));
+    return { foglio: nome, colonne, soloPrimaFila, righe };
+  }
+
+  // Colonna ID ("letteraId": cella da citare negli avvisi se non è la A) e colonna della durata; colonne: Map(chiave → colonna dei brand).
+  function leggiRighe({ nome, valore, da, a, colonne, avvisi, colId = 0, colDurata = 2, letteraId = null }) {
     const righe = [];
-    for (let r = testa + 2; r < nRighe; r++) {
-      const grezzo = valore(r, 0);
+    for (let r = da; r < a; r++) {
+      const grezzo = valore(r, colId);
       if (grezzo === null) continue;
       const testo = String(grezzo).trim();
       const valori = new Map();
@@ -98,14 +108,73 @@
       else {
         // testo nella colonna ID: è una riga della playlist (resta al suo posto, con un avviso) se ha una durata o dei valori;
         // altrimenti è una nota e si salta
-        if (valore(r, 2) === null && ![...valori.values()].some(Boolean)) continue;
+        if (valore(r, colDurata) === null && ![...valori.values()].some(Boolean)) continue;
         id = testo;
-        avvisi.push({ foglio: nome, riga: r + 1, id });
+        avvisi.push(letteraId ? { foglio: nome, riga: r + 1, id, colonnaId: letteraId } : { foglio: nome, riga: r + 1, id });
       }
-      righe.push({ id, riga: r + 1, ...durata(valore(r, 2)), valori });
+      righe.push({ id, riga: r + 1, ...durata(valore(r, colDurata)), valori });
     }
-    const soloPrimaFila = ![...colonne.keys()].some((c) => c.endsWith('|2'));
-    return { foglio: nome, colonne, soloPrimaFila, righe };
+    return righe;
+  }
+
+  // Due colonne ID nella stessa riga, sotto "FIRST HALF" e "SECOND HALF": { testa, blocchi: [{ tempo, c }] }; null se non è questo tipo di foglio.
+  function blocchiAffiancati(valore, nColonne) {
+    for (let r = 1; r < 24; r++) {
+      const blocchi = [];
+      for (let c = 0; c < nColonne; c++) {
+        const tempo = k(valore(r, c)) === 'ID' ? tempoDalTitolo(valore(r - 1, c)) : null;
+        if (tempo) blocchi.push({ tempo, c });
+      }
+      if (blocchi.some((b) => b.tempo === 'MATCH1') && blocchi.some((b) => b.tempo === 'MATCH2')) return { testa: r, blocchi };
+    }
+    return null;
+  }
+
+  // Un tempo del foglio affiancato: le sue colonne stanno tra la sua colonna ID e quella del tempo dopo.
+  function tabellaDiUnTempo(nome, foglio, XLSX, testa, inizio, fine, avvisi) {
+    const cerca = (prova) => {
+      for (let c = inizio + 1; c < fine; c++) if (prova(k(foglio.valore(testa, c)))) return c;
+      return -1;
+    };
+    const colDurata = cerca((h) => h.includes('DURATION'));
+    const colBrand = cerca((h) => h.startsWith('VIRTUALFEED'));
+    if (colDurata < 0) throw new Error(`The sheet "${nome}" has no artwork duration column.`);
+    if (colBrand < 0) throw new Error(`The sheet "${nome}" has no VIRTUAL FEED column.`);
+    const letteraId = XLSX.utils.encode_col(inizio);
+    const colonne = new Map([[`${REGIONE_UNICA}|1`, colBrand]]);
+    const righe = leggiRighe({ nome, valore: foglio.valore, da: testa + 1, a: foglio.righe, colonne, avvisi, colId: inizio, colDurata, letteraId: inizio ? letteraId : null });
+    // cicloRecovery: dopo l'ultima riga compilata il pacchetto ripete in alternanza le ultime due
+    return { foglio: nome, colonne, soloPrimaFila: true, colonnaId: letteraId, colonnaDurata: XLSX.utils.encode_col(colDurata), cicloRecovery: 2, righe };
+  }
+
+  // Cella "CB: <brand>" in qualunque punto del foglio: il brand del centreboard per tutta la partita.
+  function notaCentreboard(foglio, XLSX) {
+    for (let r = 0; r < foglio.righe; r++) {
+      for (let c = 0; c < foglio.colonne; c++) {
+        const v = foglio.valore(r, c);
+        const m = typeof v === 'string' ? /^\s*CB\s*:\s*(.+?)\s*$/i.exec(v) : null;
+        if (m) return { valore: m[1], cella: XLSX.utils.encode_cell({ r, c }), etichetta: 'CENTREBOARD' };
+      }
+    }
+    return null;
+  }
+
+  // Foglio unico con i due tempi affiancati: si guarda solo il primo foglio; niente statici né highlights. null se non è questo tipo di file.
+  function leggiDueTempi(wb, XLSX) {
+    const nome = wb.SheetNames[0];
+    const foglio = lettore(wb.Sheets[nome], XLSX);
+    const trovati = blocchiAffiancati(foglio.valore, foglio.colonne);
+    if (!trovati) return null;
+    const avvisi = [];
+    const partite = {};
+    trovati.blocchi.forEach(({ tempo, c }, i) => {
+      const dopo = trovati.blocchi[i + 1];
+      if (!partite[tempo]) partite[tempo] = tabellaDiUnTempo(nome, foglio, XLSX, trovati.testa, c, dopo ? dopo.c : foglio.colonne, avvisi);
+    });
+    const titolo = [0, 1, 2].map((c) => foglio.valore(0, c)).find((v) => v !== null);
+    const nota = notaCentreboard(foglio, XLSX);
+    return { titolo: titolo === undefined ? '' : String(titolo), partite, hl: null, feedUnico: REGIONE_UNICA, avvisi,
+      statici: new Map(nota ? [[`CB|${REGIONE_UNICA}`, nota]] : []) };
   }
 
   function statici(ws, XLSX) {
@@ -139,6 +208,8 @@
     } catch (e) {
       throw new Error('This file could not be read as an Excel workbook.');
     }
+    const dueTempi = leggiDueTempi(wb, XLSX);
+    if (dueTempi) return dueTempi;
     const partite = {};
     for (const n of wb.SheetNames) {
       let t = tipoFoglio(n);

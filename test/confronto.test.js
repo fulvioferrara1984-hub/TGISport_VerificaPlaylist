@@ -262,3 +262,55 @@ test('verifica: animazioni nel risultato, esiti invariati', () => {
   const r = verifica(excel, air, REGOLE);
   assert.deepEqual(r.animazioni.map((v) => [v.feed, v.gruppo, v.atteso, v.zone[0].zona]), [['Europa', 'First row', 'ALFA', 'FULL PERIMETER']]);
 });
+
+// Playlist a foglio unico: pacchetto con un feed che non è una regione, Pre Game e due tempi, niente highlights né statici
+function modelloUnico({ righe1 = ['ALFA', 'BETA'], righe2 = ['ALFA', 'BETA'], slot1 = righe1, slot2 = righe2, nota = 'OMEGA', segmenti, avvisi = [] } = {}) {
+  const tab = (righe, id, durata) => ({ ...tabella({ colonne: { 'UNICO|1': id === 'A' ? 4 : 11 }, righe: righe.map((v) => ({ durataMs: 30000, durataTesto: '00:00:30', valori: { 'UNICO|1': v } })) }), colonnaId: id, colonnaDurata: durata, cicloRecovery: 2 });
+  const excel = { titolo: 'ALFA vs BETA', feedUnico: 'UNICO', partite: { MATCH1: tab(righe1, 'A', 'C'), MATCH2: tab(righe2, 'H', 'J') }, hl: null, avvisi,
+    statici: new Map(nota ? [['CB|UNICO', { valore: nota, cella: 'N14', etichetta: 'CENTREBOARD' }]] : []) };
+  const fondo = { 2: art('GRASS_MEDIUM', 'TEXTURE_GRASS') };
+  const pieno = (n) => ({ durata: 30000, mappe: { 0: art(`${n}_LED`), 1: art('OMEGA_CENTREBOARD'), ...fondo } });
+  const iv = (lista) => [{ durata: 30000, mappe: { 0: BLANK, 1: BLANK } }].concat(lista.map(pieno));
+  const zone = ['LEFT LED', 'CENTREBOARD', 'GRASS_LSX_MEDIUM'];
+  const air = { evento: { nome: 'Alfa vs Beta', data: '2026-11-14', venue: 'Stadio Prova' }, zone: new Map(zone.map((z, i) => [i, z])),
+    stream: [{ nome: 'Feed Alfa', regioni: new Set(), segmenti: segmenti ? segmenti(iv) : [segmento('Pre Game', [{ durata: 30000, mappe: { 0: BLANK, 1: BLANK } }]), segmento('First Half', iv(slot1)), segmento('Second Half', iv(slot2))] }] };
+  return { excel, air };
+}
+
+test('foglio unico: tutto giusto, nessun esito, celle davvero controllate', () => {
+  const { excel, air } = modelloUnico();
+  const r = verifica(excel, air, REGOLE);
+  assert.deepEqual(r.esiti, []);
+  assert.ok(r.celle > 0);
+  assert.deepEqual([r.riepilogo.casa, r.riepilogo.ospite, r.riepilogo.partiteDiverse], ['ALFA', 'BETA', false]);
+});
+
+test('foglio unico: un brand sbagliato nel secondo tempo esce col feed del pacchetto', () => {
+  const { excel, air } = modelloUnico({ slot2: ['ALFA', 'SIGMA'] });
+  assert.deepEqual(verifica(excel, air, REGOLE).esiti.map((e) => [e.tipo, e.feed, e.segmento, e.id, e.colonna, e.zona, e.atteso, e.trovato]),
+    [['Error', 'Feed Alfa', 'Second Half', 2, 'L · VIRTUAL FEED – First row', 'LEFT LED', 'BETA', 'SIGMA_LED']]);
+});
+
+test('foglio unico: un centreboard diverso dalla nota è Error (o Possible alias se il nome non compare altrove); senza nota non si controlla', () => {
+  const scambio = modelloUnico({ nota: 'ALFA' });
+  const esiti = verifica(scambio.excel, scambio.air, REGOLE).esiti;
+  assert.equal(esiti.length, 4);
+  assert.ok(esiti.every((e) => e.tipo === 'Error' && e.zona === 'CENTREBOARD' && e.colonna === 'STATIC N14 · CENTREBOARD' && e.atteso === 'ALFA' && e.trovato === 'OMEGA_CENTREBOARD'));
+  const a = modelloUnico({ nota: 'ZETA' });
+  assert.ok(verifica(a.excel, a.air, REGOLE).esiti.every((e) => e.tipo === 'Possible alias' && e.atteso === 'ZETA'));
+  const b = modelloUnico({ nota: null });
+  assert.deepEqual(verifica(b.excel, b.air, REGOLE).esiti, []);
+});
+
+test('foglio unico: gli highlights nel pacchetto non hanno una riga da confrontare; ID non numerico citato con la colonna del tempo', () => {
+  const { excel, air } = modelloUnico({ avvisi: [{ foglio: 'Foglio', riga: 14, id: '1a', colonnaId: 'H' }],
+    segmenti: (iv) => [segmento('Pre Game', [{ durata: 30000, mappe: { 0: BLANK, 1: BLANK } }]), segmento('First Half', iv(['ALFA', 'BETA'])), segmento('Second Half', iv(['ALFA', 'BETA'])), segmento('Highlights', iv(['ALFA']))] });
+  assert.deepEqual(verifica(excel, air, REGOLE).esiti.map((e) => [e.tipo, e.segmento, e.colonna, e.atteso, e.trovato]), [
+    ['Warning', '-', 'Foglio · H14', 'numeric ID', '1a'],
+    ['Warning', 'Highlights', '-', 'Highlights in the Excel', 'not checked']]);
+});
+
+test('foglio unico: manca un tempo nel pacchetto: errore; gli highlights assenti no', () => {
+  const { excel, air } = modelloUnico({ segmenti: (iv) => [segmento('Pre Game', [{ durata: 30000, mappe: { 0: BLANK, 1: BLANK } }]), segmento('First Half', iv(['ALFA', 'BETA']))] });
+  assert.deepEqual(verifica(excel, air, REGOLE).esiti.map((e) => [e.tipo, e.segmento, e.atteso, e.trovato]), [['Error', '2nd Half', 'AIR sequence', 'missing']]);
+});

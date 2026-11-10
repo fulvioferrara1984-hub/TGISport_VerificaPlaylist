@@ -10,11 +10,14 @@
   const POS = new Set(['GC1', 'GC', '1', '2', 'GL1', 'GL2', 'GL', 'TL1', 'TL2', 'TL', 'J', 'D', 'JUMBO', 'CORNER', 'A', 'B', 'C', 'AB', 'BC',
     'LC', 'UC', 'SX', 'DX', 'GLSX', 'GLDX', 'GLSX2', 'GLDX2', 'TLA', 'SOLO', 'SOLO1FILA', 'GL2TL2', 'CC', 'ADD',
     'LSX', 'USX', 'UDX', 'LDX', 'TLB', 'TLBC', 'LCUC', 'TL2A', 'TL2BC', 'TL2AB', '1FILA', '2FILA', 'CX', 'CX2', 'TLCX', 'GLSX1', 'GLDX1',
-    'RSX', 'RDX', 'SEC', '10', '15', '30']);
+    'RSX', 'RDX', 'SEC', '10', '15', '30', 'LED', 'CENTREBOARD']);
+
+  // Maiuscole, con le lettere accentate e nordiche come quelle semplici (Ö → O, Ø → O, Æ → AE).
+  const semplice = (testo) => String(testo).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/Ø/g, 'O').replace(/Æ/g, 'AE');
 
   // Solo lettere maiuscole e cifre: "Alfa Beta_J" → "ALFABETAJ".
   function k(testo) {
-    return testo == null ? '' : String(testo).toUpperCase().replace(/[^A-Z0-9]/g, '');
+    return testo == null ? '' : semplice(testo).replace(/[^A-Z0-9]/g, '');
   }
 
   // "TRANSPARENT" nell'Excel vuol dire nessun virtual, come la cella vuota.
@@ -73,7 +76,7 @@
     });
     return { testo, confini };
   }
-  const paroleTesto = (t) => parole(String(t).toUpperCase().split(/[^A-Z0-9]+/));
+  const paroleTesto = (t) => parole(semplice(t).split(/[^A-Z0-9]+/));
 
   // a sta dentro b.testo e inizia e finisce a un confine di parola (TAX non sta dentro MELTAX).
   function allineato(b, a) {

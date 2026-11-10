@@ -2,7 +2,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { librerie } = require('./aiuto.js');
-const { cartella } = require('./fixture-excel.js');
+const { cartella, cartellaDueTempi } = require('./fixture-excel.js');
 const { leggiExcel, regione } = require('../app/lettura-excel.js');
 
 const { XLSX } = librerie();
@@ -117,4 +117,43 @@ test('durata scritta come testo minuti:secondi ("00:15") oltre che ore:minuti:se
   assert.deepEqual(durata('00:15'), { durataMs: 15000, durataTesto: '00:00:15' });
   assert.deepEqual(durata(' 01:30 '), { durataMs: 90000, durataTesto: '00:01:30' });
   assert.deepEqual(durata('00:00:20'), { durataMs: 20000, durataTesto: '00:00:20' });
+});
+
+test('foglio unico con i due tempi affiancati: due tabelle, una colonna di brand, niente statici né highlights', () => {
+  const x = leggiExcel(cartellaDueTempi({ righe1: [[1, 30, 'Alfa'], [2, 30, 'Beta']], righe2: [[1, 30, 'Gamma'], [2, 30]] }), XLSX);
+  assert.deepEqual(Object.keys(x.partite).sort(), ['MATCH1', 'MATCH2']);
+  assert.equal(x.feedUnico, 'UNICO');
+  assert.equal(x.hl, null);
+  assert.equal(x.statici.size, 0);
+  assert.equal(x.titolo, 'ALFA vs BETA');
+  const [a, b] = [x.partite.MATCH1, x.partite.MATCH2];
+  assert.equal(a.foglio, 'Match Running Order');
+  assert.deepEqual([...a.colonne], [['UNICO|1', 4]]);
+  assert.deepEqual([...b.colonne], [['UNICO|1', 11]]);
+  assert.equal(a.soloPrimaFila, true);
+  assert.deepEqual([a.colonnaId, a.colonnaDurata, b.colonnaId, b.colonnaDurata], ['A', 'C', 'H', 'J']);
+  assert.deepEqual([a.cicloRecovery, b.cicloRecovery], [2, 2]);
+  assert.deepEqual(a.righe.map((r) => [r.id, r.riga, r.durataMs, r.durataTesto, r.valori.get('UNICO|1')]), [[1, 14, 30000, '00:00:30', 'Alfa'], [2, 15, 30000, '00:00:30', 'Beta']]);
+  assert.deepEqual(b.righe.map((r) => [r.id, r.valori.get('UNICO|1')]), [[1, 'Gamma'], [2, null]]);
+});
+
+test('foglio unico: la nota CB: dice il brand del centreboard; senza nota niente', () => {
+  const con = leggiExcel(cartellaDueTempi({ righe1: [[1, 30, 'Alfa']], righe2: [[1, 30, 'Alfa']], nota: 'CB: Omega Sport' }), XLSX);
+  assert.deepEqual(con.statici.get('CB|UNICO'), { valore: 'Omega Sport', cella: 'N14', etichetta: 'CENTREBOARD' });
+  assert.equal(leggiExcel(cartellaDueTempi({ righe1: [[1, 30, 'Alfa']], righe2: [[1, 30, 'Alfa']], nota: 'Promemoria: controllare' }), XLSX).statici.size, 0);
+});
+
+test('foglio unico: gli altri fogli non si guardano e il riconoscimento non dipende dal nome', () => {
+  const x = leggiExcel(cartellaDueTempi({ righe1: [[1, 30, 'Alfa']], righe2: [[1, 30, 'Beta']], altriFogli: ['Appunti'], nomeFoglio: 'Foglio1' }), XLSX);
+  assert.deepEqual(Object.keys(x.partite).sort(), ['MATCH1', 'MATCH2']);
+  assert.equal(x.partite.MATCH1.foglio, 'Foglio1');
+});
+
+test('foglio unico: ID non numerico segnalato con la colonna del suo tempo', () => {
+  const x = leggiExcel(cartellaDueTempi({ righe1: [[1, 30, 'Alfa']], righe2: [['1a', 30, 'Beta']] }), XLSX);
+  assert.deepEqual(x.avvisi, [{ foglio: 'Match Running Order', riga: 14, id: '1a', colonnaId: 'H' }]);
+});
+
+test('foglio unico senza colonna VIRTUAL FEED: errore chiaro', () => {
+  assert.throws(() => leggiExcel(cartellaDueTempi({ righe1: [[1, 30, 'Alfa']], righe2: [[1, 30, 'Beta']], testaVirtual: 'NOTE' }), XLSX), /no VIRTUAL FEED column/);
 });

@@ -164,3 +164,48 @@ test('animazioni: gli esiti non cambiano senza l\'aggancio', () => {
   assert.deepEqual(c.esiti, con.esiti);
   assert.equal(con.animazioni.length, 4);
 });
+
+// Playlist a foglio unico: la colonna dei brand è una sola, e dopo l'ultima riga compilata il pacchetto alterna le ultime due
+function provaUnico({ righe, slot, colonnaId = 'A', colonnaDurata = 'C', tipo = 'MATCH1', nomeSeg = 'First Half' }) {
+  const c = contesto({ zone: ['LEFT LED', 'RIGHT LED'] });
+  const tab = { ...tabella({ colonne: { 'UNICO|1': 4 }, righe: righe.map((v, i) => ({ id: i + 1, durataMs: 30000, durataTesto: '00:00:30', valori: v ? { 'UNICO|1': v } : {} })) }), colonnaId, colonnaDurata, cicloRecovery: 2 };
+  const lato = (n) => (n ? art(`${n}_LED`, `LEGA_${n}`) : BLANK);
+  const seg = segmento(nomeSeg, [{ durata: 30000, mappe: { 0: BLANK, 1: BLANK } }].concat(slot.map((n) => ({ durata: 30000, mappe: { 0: lato(n), 1: lato(n) } }))));
+  controllaVirtual(c, stream('Feed Alfa', ['UNICO']), seg, tipo, tab);
+  return c;
+}
+
+test('foglio unico: brand giusti nei due lati, nessun esito; un brand sbagliato vale per ogni lato, con la colonna del foglio', () => {
+  assert.deepEqual(provaUnico({ righe: ['ALFA', 'BETA'], slot: ['ALFA', 'BETA'] }).esiti, []);
+  assert.deepEqual(breve(provaUnico({ righe: ['ALFA', 'BETA'], slot: ['ALFA', 'OMEGA'] }).esiti), ['LEFT LED', 'RIGHT LED'].map((zona) => (
+    { tipo: 'Error', id: 2, colonna: 'E · VIRTUAL FEED – First row', zona, atteso: 'BETA', trovato: 'OMEGA_LED' })));
+});
+
+test('foglio unico: recupero che alterna le ultime due righe compilate, anche oltre l’ultima riga dell’Excel: Recovery', () => {
+  const c = provaUnico({ righe: ['ALFA', 'BETA', null, null], slot: ['ALFA', 'BETA', 'ALFA', 'BETA', 'ALFA', 'BETA'] });
+  assert.deepEqual(breve(c.esiti), [[3, 1, 'ALFA'], [4, 2, 'BETA'], ['slot 5', 1, 'ALFA'], ['slot 6', 2, 'BETA']].map(([id, n, trovato]) => (
+    { tipo: 'Recovery', id, colonna: 'E · VIRTUAL FEED – First row', zona: '-', atteso: `repeat of ID ${n}`, trovato })));
+});
+
+test('foglio unico: nel recupero un brand estraneo o fuori posto è Error', () => {
+  const altro = provaUnico({ righe: ['ALFA', 'BETA', null], slot: ['ALFA', 'BETA', 'OMEGA'] });
+  assert.deepEqual([...new Set(altro.esiti.map((e) => [e.tipo, e.id, e.atteso, e.trovato].join('|')))], ['Error|3|Blank|OMEGA_LED']);
+  const fuoriPosto = provaUnico({ righe: ['ALFA', 'BETA', null], slot: ['ALFA', 'BETA', 'BETA'] });
+  assert.deepEqual([...new Set(fuoriPosto.esiti.map((e) => [e.tipo, e.id, e.atteso, e.trovato].join('|')))], ['Error|3|Blank|BETA_LED']);
+});
+
+test('foglio unico: durata e ID si citano con le colonne del loro tempo', () => {
+  const c = provaUnico({ righe: ['ALFA'], slot: [], colonnaId: 'H', colonnaDurata: 'J', tipo: 'MATCH2', nomeSeg: 'Second Half' });
+  const lungo = contesto({ zone: ['LEFT LED'] });
+  const tab = { ...tabella({ colonne: { 'UNICO|1': 11 }, righe: [{ id: 7, durataMs: 15000, durataTesto: '00:00:15', valori: { 'UNICO|1': 'ALFA' } }] }), colonnaId: 'H', colonnaDurata: 'J', cicloRecovery: 2 };
+  controllaVirtual(lungo, stream('Feed Alfa', ['UNICO']), segmento('Second Half', [{ durata: 30000, mappe: { 0: BLANK } }, { durata: 30000, mappe: { 0: art('ALFA_LED') } }]), 'MATCH2', tab);
+  assert.deepEqual(breve(lungo.esiti), [
+    { tipo: 'Warning', id: 7, colonna: 'H6 · ID', zona: '-', atteso: 'IDs start at 1', trovato: 'starts at 7' },
+    { tipo: 'Error', id: 7, colonna: 'J6 · Duration', zona: '-', atteso: '00:00:15', trovato: '30 s' }]);
+  assert.deepEqual(c.esiti.map((e) => e.atteso), ['AIR slot']);
+});
+
+test('playlist normale: uno slot oltre l’ultima riga dell’Excel resta un errore', () => {
+  const c = prova({ slot: [{ mappe: pieno }, { mappe: pieno }], righe: [{ valori: ALFA }] });
+  assert.deepEqual(breve(c.esiti), [{ tipo: 'Error', id: 'slot 2', colonna: '-', zona: '-', atteso: 'Excel row', trovato: 'missing' }]);
+});
