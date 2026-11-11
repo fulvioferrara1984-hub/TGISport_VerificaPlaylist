@@ -346,11 +346,14 @@ body.con-pannello { overflow: hidden; }
 .rev-nota { margin: 0 0 8px; }
 .rev-zona { display: grid; grid-template-columns: 120px minmax(0, 1fr); align-items: center; gap: 10px; margin: 6px 0; }
 .rev-nome { color: var(--inchiostro-2); font-size: var(--t-12); overflow-wrap: anywhere; }
-.rev-media video, .rev-media img {
+.rev-media video, .rev-media img, .rev-media canvas {
   display: block; width: 100%; max-height: 180px; object-fit: contain; padding: 8px;
   background: repeating-conic-gradient(var(--quadro-media-1) 0 25%, var(--quadro-media-2) 0 50%) 0 0 / 16px 16px; border-radius: 6px;
 }
 .rev-attesa { color: var(--inchiostro-3); font-size: 13px; }
+/* striscia andata a capo su più righe: alta quanto le sue righe */
+.rev-media canvas { max-height: none; }
+.rev-righe { margin: 4px 0 0; color: var(--inchiostro-3); font-size: var(--t-12); }
 .rev-non-disponibile {
   display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
   padding: 10px 12px; border: 1px dashed var(--linea-forte); border-radius: 8px;

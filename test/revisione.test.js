@@ -1,7 +1,7 @@
 // Visual check (app/revisione.js): statici in una prima schermata, schermate degli slot senza doppioni, avanzamento e righe Error dalle risposte.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { schermate, avanzamento, esitiVisivi, testoAvanzamento, testoDaFare, doveGruppo, tuttoCorretto } = require('../app/revisione.js');
+const { schermate, avanzamento, esitiVisivi, testoAvanzamento, testoDaFare, doveGruppo, tuttoCorretto, righeStriscia } = require('../app/revisione.js');
 
 const voce = ({ feed = 'EU', segmento = '1st Half', slot = 1, id, gruppo = 'First row', colonna = 'F · EUROPE – First row', atteso = 'ALFA', nota = '', zone = [['GL_SX_1', 'a.mp4']] } = {}) => ({
   feed, segmento, slot, id: id === undefined ? slot : id, gruppo, colonna, atteso, nota, zone: zone.map(([zona, file]) => ({ zona, file })),
@@ -191,4 +191,49 @@ test('ogni uso delle voci finisce in una schermata', () => {
   ];
   const unici = [...new Map(schermate(voci).flatMap((s) => s.gruppi).map((g) => [g.chiave, g])).values()];
   assert.equal(unici.reduce((n, g) => n + g.usi.length, 0), voci.reduce((n, v) => n + v.zone.length, 0));
+});
+
+// Righe di una striscia: ognuna parte da i * passo e copre larghezzaRiga pixel della sorgente; l'ultima finisce sul bordo destro.
+const fineUltima = (s) => (s.righe - 1) * s.passo + s.larghezzaRiga;
+// ogni pezzo largo "largo" pixel cade intero in almeno una riga
+const pezziInteri = (s, larghezza, largo) => {
+  for (let x = 0; x + largo <= larghezza; x += 7) {
+    const dentro = Array.from({ length: s.righe }, (_, i) => i * s.passo).some((da) => x >= da - 1e-6 && x + largo <= da + s.larghezzaRiga + 1e-6);
+    if (!dentro) return x;
+  }
+  return -1;
+};
+
+test('righeStriscia: una striscia LED da 11200×90 in 1184 px va a capo su 6 righe alte almeno 45 px', () => {
+  const s = righeStriscia(11200, 90, 1184);
+  assert.equal(s.righe, 6);
+  assert.ok(s.altezzaRiga >= 45 && s.altezzaRiga < 60, String(s.altezzaRiga));
+  assert.ok(Math.abs(fineUltima(s) - 11200) < 1e-6, 'l’ultima riga finisce sul bordo destro');
+  assert.ok(Math.abs(s.larghezzaRiga - s.passo - 450) < 1e-6, 'ogni riga ricomincia con gli ultimi 450 px (5 volte l’altezza) della precedente');
+  assert.ok(Math.abs(s.altezzaRiga - 90 * 1184 / s.larghezzaRiga) < 1e-6, 'stesse proporzioni della sorgente');
+});
+
+test('righeStriscia: nessun pezzo largo fino a 5 volte l’altezza resta spezzato tra due righe', () => {
+  for (const [w, h, spazio] of [[11200, 90, 1184], [11200, 90, 591], [1600, 56, 591], [7680, 64, 900]]) {
+    const s = righeStriscia(w, h, spazio);
+    assert.ok(s.righe > 1, `${w}×${h} in ${spazio} px va a capo`);
+    assert.equal(pezziInteri(s, w, 5 * h), -1, `${w}×${h} in ${spazio} px`);
+  }
+});
+
+test('righeStriscia: un media già abbastanza alto resta su una riga', () => {
+  for (const [w, h] of [[1280, 90], [10000, 2000], [1920, 1080], [1600, 56]]) {
+    const s = righeStriscia(w, h, 1184);
+    assert.deepEqual([s.righe, s.passo, s.larghezzaRiga], [1, w, w], `${w}×${h}`);
+    assert.ok(Math.abs(s.altezzaRiga - h * 1184 / w) < 1e-6);
+  }
+});
+
+test('righeStriscia: in un riquadro stretto al massimo 8 righe; misure non valide → una riga', () => {
+  const s = righeStriscia(11200, 90, 591);
+  assert.equal(s.righe, 8);
+  assert.ok(s.altezzaRiga > 25, String(s.altezzaRiga));
+  assert.ok(Math.abs(fineUltima(s) - 11200) < 1e-6);
+  assert.equal(righeStriscia(1600, 56, 591).righe, 3);
+  for (const [w, h, spazio] of [[0, 0, 500], [11200, 90, 0], [11200, 0, 500], [NaN, 90, 500]]) assert.equal(righeStriscia(w, h, spazio).righe, 1, `${w}×${h} in ${spazio}`);
 });

@@ -107,12 +107,13 @@ for (const [nome, t] of Object.entries(temi)) {
   });
 }
 
-test('visual check: scacchiera e cornice dietro video e immagini', () => {
-  const r = /\.rev-media video, \.rev-media img \{([^}]*)\}/.exec(css);
+test('visual check: scacchiera e cornice dietro video, immagini e strisce andate a capo', () => {
+  const r = /\.rev-media video, \.rev-media img, \.rev-media canvas \{([^}]*)\}/.exec(css);
   assert.ok(r, 'regola dei media mancante');
   assert.match(r[1], /background: repeating-conic-gradient\(var\(--quadro-media-1\) 0 25%, var\(--quadro-media-2\) 0 50%\) 0 0 \/ 16px 16px;/);
   assert.match(r[1], /padding: 8px;/);
   assert.equal(/--fondo-media/.test(css), false, 'il vecchio fondo nero non serve più');
+  assert.match(css, /\.rev-media canvas \{ max-height: none; \}/, 'una striscia andata a capo è alta quanto le sue righe');
 });
 
 test('visual check tutto Correct: la scheda diventa verde e lo dice anche a parole', () => {

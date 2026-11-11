@@ -42,12 +42,12 @@ test('visual check: scheda, pannello e script nella pagina', () => {
   assert.ok(HTML.includes('id="revisione"'));
   assert.ok(HTML.indexOf('app/revisione.js') > HTML.indexOf('app/report.js'));
   assert.ok(HTML.indexOf('app/revisione-ui.js') < HTML.indexOf('app/check.js'));
-  assert.equal(/\?v=(?!23")/.test(HTML), false, 'versione diversa da 23');
+  assert.equal(/\?v=(?!24")/.test(HTML), false, 'versione diversa da 24');
 });
 
 test('grafica della Piattaforma: tema applicato nel <head> prima del CSS', () => {
   const testa = HTML.slice(0, HTML.indexOf('</head>'));
-  assert.ok(testa.includes('<script src="app/tema.js?v=23"></script>'), 'tema.js nel head');
+  assert.ok(testa.includes('<script src="app/tema.js?v=24"></script>'), 'tema.js nel head');
   assert.ok(testa.indexOf('app/tema.js') < testa.indexOf('app/stile.css'), 'tema.js prima del CSS');
 });
 

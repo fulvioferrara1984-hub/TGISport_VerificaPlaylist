@@ -157,5 +157,28 @@
     });
   }
 
-  return { NOME: 'revisione', schermate, doveGruppo, avanzamento, tuttoCorretto, testoAvanzamento, testoDaFare, esitiVisivi };
+  // Una striscia (es. LED da 11200×90) larga quanto il riquadro sarebbe alta pochi pixel: allora va a capo su più righe,
+  // come un testo, finché ogni riga è alta almeno RIGA_ALTA px (al massimo RIGHE_MAX righe). Ogni riga ricomincia con gli
+  // ultimi SOVRAPPOSTI × altezza pixel della precedente, così un logo largo fino a 5 volte l'altezza è sempre intero in una riga.
+  // larghezza, altezza: pixel del media; spazio: px disponibili nel riquadro.
+  // → { righe, passo, larghezzaRiga, altezzaRiga }: la riga i copre i pixel da i * passo a i * passo + larghezzaRiga,
+  //   l'ultima finisce sul bordo destro; altezzaRiga in px, con le proporzioni del media.
+  const RIGA_MINIMA = 40; // sotto questa altezza la striscia va a capo
+  const RIGA_ALTA = 45;
+  const RIGHE_MAX = 8;
+  const SOVRAPPOSTI = 5;
+  function righeStriscia(larghezza, altezza, spazio) {
+    const valide = larghezza > 0 && altezza > 0 && spazio > 0;
+    const una = { righe: 1, passo: larghezza, larghezzaRiga: larghezza, altezzaRiga: valide ? altezza * spazio / larghezza : 0 };
+    if (!valide || una.altezzaRiga >= RIGA_MINIMA) return una;
+    let scelta = una;
+    for (let n = 2; n <= RIGHE_MAX && scelta.altezzaRiga < RIGA_ALTA; n++) {
+      const comune = Math.min(SOVRAPPOSTI * altezza, larghezza / (n + 1)); // mai più di quanto una riga avanza
+      const larghezzaRiga = (larghezza + (n - 1) * comune) / n;
+      scelta = { righe: n, passo: larghezzaRiga - comune, larghezzaRiga, altezzaRiga: altezza * spazio / larghezzaRiga };
+    }
+    return scelta;
+  }
+
+  return { NOME: 'revisione', schermate, doveGruppo, avanzamento, tuttoCorretto, testoAvanzamento, testoDaFare, esitiVisivi, righeStriscia };
 });

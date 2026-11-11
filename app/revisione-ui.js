@@ -88,7 +88,7 @@
   function apri(ultimo, alCambio) {
     if (!ultimo.schermate.length) return;
     chiudi();
-    stato = { ultimo, alCambio, indice: 0, url: [], giro: null, aggiorna: [] };
+    stato = { ultimo, alCambio, indice: 0, url: [], giro: null, aggiorna: [], ferma: [] };
     const primo = ultimo.schermate.findIndex(daDecidere);
     stato.indice = primo >= 0 ? primo : 0;
     const p = $('revisione');
@@ -109,8 +109,10 @@
     stato = null;
   }
 
-  // ferma i video dello slot e libera i loro URL
+  // ferma i video dello slot (e il disegno delle strisce andate a capo) e libera i loro URL
   function libera() {
+    stato.ferma.forEach((f) => f());
+    stato.ferma = [];
     $('revisione').querySelectorAll('video').forEach((v) => { v.pause(); v.removeAttribute('src'); v.load(); });
     stato.url.forEach((u) => URL.revokeObjectURL(u));
     stato.url = [];
@@ -270,6 +272,7 @@
     stato.url.push(url);
     if (immagine) {
       const img = el('img', { alt: file });
+      img.addEventListener('load', () => { if (stato && giro === stato.giro) aCapo(box, img, img.naturalWidth, img.naturalHeight); }, { once: true });
       img.src = url;
       box.replaceChildren(img);
       return null;
@@ -295,7 +298,68 @@
       riquadro(box, file, 'preview not available in this browser', byte);
       return null;
     }
+    aCapo(box, v, v.videoWidth, v.videoHeight);
     return v;
+  }
+
+  const TRA_RIGHE = 6; // px tra le righe di una striscia andata a capo (si vede la scacchiera)
+  const PADDING = 16; // padding del media, 8 px per lato
+
+  // Una striscia troppo sottile per il riquadro (PC.revisione.righeStriscia) va a capo su più righe ingrandite, disegnate in un
+  // canvas a ogni fotogramma: si vede tutta, senza tagli. Il media resta nel riquadro, nascosto, e continua a girare
+  // (Restart e il cambio di slot lo trovano come gli altri). Si decide di nuovo a ogni cambio di larghezza del riquadro:
+  // anche un riquadro ancora senza larghezza (finestra nascosta) o una finestra allargata / ristretta dopo.
+  function aCapo(box, fonte, larghezza, altezza) {
+    let tela = null;
+    let spiega = null;
+    let schema = null;
+    let misurato = -1;
+    let fermo = false;
+    function disegna() {
+      if (!tela || !schema) return;
+      const g = tela.getContext('2d');
+      g.clearRect(0, 0, tela.width, tela.height);
+      for (let i = 0; i < schema.righe; i++) {
+        const da = i * schema.passo;
+        const largo = Math.min(schema.larghezzaRiga, larghezza - da);
+        g.drawImage(fonte, da, 0, largo, altezza, 0, i * (schema.altezzaRiga + TRA_RIGHE) * schema.dpr,
+          tela.width * largo / schema.larghezzaRiga, schema.altezzaRiga * schema.dpr);
+      }
+    }
+    function ciclo() {
+      if (fermo || !tela) return;
+      if (fonte.currentTime !== schema.mostrato) { schema.mostrato = fonte.currentTime; disegna(); }
+      requestAnimationFrame(ciclo);
+    }
+    function misura() {
+      const spazio = box.clientWidth - PADDING;
+      if (fermo || spazio <= 0 || spazio === misurato) return;
+      misurato = spazio;
+      const s = PC.revisione.righeStriscia(larghezza, altezza, spazio);
+      if (s.righe === 1) { // ci sta su una riga: il media com'è
+        if (tela) { tela.remove(); spiega.remove(); tela = null; schema = null; fonte.hidden = false; }
+        return;
+      }
+      const nuova = !tela;
+      if (nuova) {
+        tela = el('canvas', { role: 'img', 'aria-label': fonte.getAttribute('aria-label') || fonte.getAttribute('alt') || '' });
+        spiega = el('p', { class: 'rev-righe' });
+        fonte.hidden = true;
+        box.append(tela, spiega);
+      }
+      const dpr = window.devicePixelRatio || 1;
+      tela.width = Math.round(spazio * dpr);
+      tela.height = Math.round((s.righe * s.altezzaRiga + (s.righe - 1) * TRA_RIGHE) * dpr);
+      schema = { ...s, dpr, mostrato: -1 };
+      spiega.textContent = `Shown on ${s.righe} rows, left to right: each row starts with the end of the one above.`;
+      disegna();
+      if (nuova && fonte.tagName === 'VIDEO') requestAnimationFrame(ciclo);
+    }
+    // misura al fotogramma dopo: cambiare l'altezza del canvas dentro il callback farebbe ripartire l'osservatore
+    const osservatore = new ResizeObserver(() => requestAnimationFrame(misura));
+    misura();
+    osservatore.observe(box);
+    stato.ferma.push(() => { fermo = true; osservatore.disconnect(); });
   }
 
   PC.revisioneUi = { scheda, segnaScheda, apri, chiudi, aggiornaLettura };
