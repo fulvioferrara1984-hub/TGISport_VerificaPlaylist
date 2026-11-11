@@ -314,3 +314,33 @@ test('foglio unico: manca un tempo nel pacchetto: errore; gli highlights assenti
   const { excel, air } = modelloUnico({ segmenti: (iv) => [segmento('Pre Game', [{ durata: 30000, mappe: { 0: BLANK, 1: BLANK } }]), segmento('First Half', iv(['ALFA', 'BETA']))] });
   assert.deepEqual(verifica(excel, air, REGOLE).esiti.map((e) => [e.tipo, e.segmento, e.atteso, e.trovato]), [['Error', '2nd Half', 'AIR sequence', 'missing']]);
 });
+
+// Foglio unico con il foglio STATIC ASSETS: due LED e due tappeti con un brand per tempo; recupero in fondo e un intervallo vuoto a fine tempo
+function modelloTappeti({ tappeto1 = 'KAPPA', tappeto2 = 'SIGMA', mat1 = tappeto1, mat2 = tappeto2, multi = 'ZETA_MULTIBRAND_LED' } = {}) {
+  const righe = ['ALFA', 'BETA', 'ZETA PARTNERRING', 'ZETA PARTNERRING'];
+  const tab = (id, durata) => ({ ...tabella({ colonne: { 'UNICO|1': id === 'A' ? 4 : 11 }, righe: righe.map((v) => ({ durataMs: 30000, durataTesto: '00:00:30', valori: { 'UNICO|1': v } })) }), colonnaId: id, colonnaDurata: durata, cicloRecovery: 2, soloPrimaFila: true });
+  const voce = (valore, cella, etichetta) => ({ valore, cella, etichetta });
+  const excel = { titolo: 'ALFA vs BETA', feedUnico: 'UNICO', partite: { MATCH1: tab('A', 'C'), MATCH2: tab('H', 'J') }, hl: null, avvisi: [],
+    statici: new Map([['MATS_L1@MATCH1|UNICO', voce(tappeto1, 'C3', 'CLUB MAT L1 · FIRST HALF')], ['MATS_L1@MATCH2|UNICO', voce(tappeto2, 'D3', 'CLUB MAT L1 · SECOND HALF')]]) };
+  const led = (n) => (n.includes('PARTNERRING') ? multi : `${n}_LED`);
+  const pieno = (n, mat) => ({ durata: 30000, mappe: { 0: art(`${led(n)}_LEFT`), 1: art(`${led(n)}_RIGHT`), 2: art(`${mat}_MATS_L1`) } });
+  const tempo = (mat) => [{ durata: 30000, mappe: { 0: BLANK, 1: BLANK } }].concat(righe.concat(['ZETA PARTNERRING', 'ZETA PARTNERRING']).map((n) => pieno(n, mat)), [{ durata: 30000, mappe: {} }]);
+  const air = { evento: { nome: 'Alfa vs Beta', data: '2026-11-16', venue: 'Stadio Prova' }, zone: new Map(['Left LED', 'Right LED', 'Mats_L1'].map((z, i) => [i, z])),
+    stream: [{ nome: 'Feed Alfa', regioni: new Set(), segmenti: [segmento('Pre Game', [{ durata: 30000, mappe: { 0: BLANK, 1: BLANK } }]), segmento('First Half', tempo(mat1)), segmento('Second Half', tempo(mat2))] }] };
+  return { excel, air };
+}
+
+test('foglio unico con STATIC ASSETS: tappeti giusti in ogni tempo, nessun errore; il partner ring è un alias da confermare anche nel recupero', () => {
+  const { excel, air } = modelloTappeti();
+  const r = verifica(excel, air, REGOLE);
+  assert.deepEqual([...new Set(r.esiti.map((e) => [e.tipo, e.atteso, e.trovato].join('|')))].sort(), [
+    'Possible alias|ZETA PARTNERRING|ZETA_MULTIBRAND_LED_LEFT', 'Possible alias|ZETA PARTNERRING|ZETA_MULTIBRAND_LED_RIGHT']);
+  assert.ok(r.esiti.every((e) => e.zona !== 'Mats_L1'));
+});
+
+test('foglio unico con STATIC ASSETS: un tappeto sbagliato esce nel suo tempo, con la cella del foglio', () => {
+  const { excel, air } = modelloTappeti({ mat2: 'KAPPA' });
+  const sbagliati = verifica(excel, air, REGOLE).esiti.filter((e) => e.zona === 'Mats_L1');
+  assert.deepEqual([...new Set(sbagliati.map((e) => [e.tipo, e.segmento, e.colonna, e.atteso, e.trovato].join('|')))], ['Error|Second Half|STATIC D3 · CLUB MAT L1 · SECOND HALF|SIGMA|KAPPA_MATS_L1']);
+  assert.equal(sbagliati.length, 6);
+});

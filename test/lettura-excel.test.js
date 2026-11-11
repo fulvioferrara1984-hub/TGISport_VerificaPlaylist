@@ -157,3 +157,15 @@ test('foglio unico: ID non numerico segnalato con la colonna del suo tempo', () 
 test('foglio unico senza colonna VIRTUAL FEED: errore chiaro', () => {
   assert.throws(() => leggiExcel(cartellaDueTempi({ righe1: [[1, 30, 'Alfa']], righe2: [[1, 30, 'Beta']], testaVirtual: 'NOTE' }), XLSX), /no VIRTUAL FEED column/);
 });
+
+test('foglio unico con il foglio STATIC ASSETS: i tappeti CLUB MAT con il brand di ogni tempo', () => {
+  const x = leggiExcel(cartellaDueTempi({ righe1: [[1, 30, 'Alfa']], righe2: [[1, 30, 'Alfa']], nota: 'CB: Omega',
+    statici: [['CLUB MAT L1', 'Kappa', 'Beta'], ['CLUB MAT R1', 'Gamma', 'Gamma'], ['NOTE', 'x', 'y']] }), XLSX);
+  assert.deepEqual([...x.statici].sort(([a], [b]) => a.localeCompare(b)), [
+    ['CB|UNICO', { valore: 'Omega', cella: 'N14', etichetta: 'CENTREBOARD' }],
+    ['MATS_L1@MATCH1|UNICO', { valore: 'Kappa', cella: 'C3', etichetta: 'CLUB MAT L1 · FIRST HALF' }],
+    ['MATS_L1@MATCH2|UNICO', { valore: 'Beta', cella: 'D3', etichetta: 'CLUB MAT L1 · SECOND HALF' }],
+    ['MATS_R1@MATCH1|UNICO', { valore: 'Gamma', cella: 'C4', etichetta: 'CLUB MAT R1 · FIRST HALF' }],
+    ['MATS_R1@MATCH2|UNICO', { valore: 'Gamma', cella: 'D4', etichetta: 'CLUB MAT R1 · SECOND HALF' }],
+  ]);
+});

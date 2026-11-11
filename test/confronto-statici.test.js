@@ -7,8 +7,9 @@ const { attesiStatici, controllaStatici } = require('../app/confronto-statici.js
 const SPONSOR = { prefisso: 'SPZ_', etichetta: 'SPZ zones', DOM: 'SPZVITA', FE: null, altri: 'OMEGABET' };
 const st = (valore, cella, etichetta) => ({ valore, cella, etichetta });
 
-function prova({ zone, regioni = ['EU'], tipo = 'MATCH', slot, attesi = {}, angoliStatici = false }) {
+function prova({ zone, regioni = ['EU'], tipo = 'MATCH', slot, attesi = {}, angoliStatici = false, feedUnico = false }) {
   const c = contesto({ zone, angoliStatici, prefissoSponsor: SPONSOR.prefisso });
+  c.feedUnico = feedUnico;
   const nomeSeg = { PRE: 'Pre Match - Post Match', HL: 'Highlights' }[tipo] || '1st Half - 2nd Half';
   controllaStatici(c, stream('Feed', regioni), segmento(nomeSeg, slot), tipo, attesi, SPONSOR);
   return c;
@@ -153,4 +154,41 @@ test('attesi: il centreboard del feed unico', () => {
   assert.deepEqual(a.CB, voce);
   assert.deepEqual(esiti, []);
   assert.deepEqual(attesiStatici(new Map(), new Set(['UNICO']), (e) => esiti.push(e), 'Feed').CB, { valore: null, cella: '', etichetta: 'CB' });
+});
+
+// Tappeti del foglio unico: il foglio STATIC ASSETS dà il brand di ogni tappeto tempo per tempo (chiave MATS_<lato>@<tempo>)
+const TAPPETI = new Map([['MATS_L1@MATCH1', st('ALFA', 'C3', 'CLUB MAT L1 · FIRST HALF')], ['MATS_L1@MATCH2', st('BETA', 'D3', 'CLUB MAT L1 · SECOND HALF')]]);
+
+test('tappeti: il brand del loro tempo in ogni slot, mai nel lead-in; un altro brand è Error', () => {
+  const primo = prova({ zone: ['LEFT LED', 'Mats_L1'], tipo: 'MATCH1', attesi: { MATS: TAPPETI },
+    slot: [{ mappe: { 0: BLANK } }, { mappe: { 1: art('ALFA_MATS_L1') } }, { mappe: { 1: art('BETA_MATS_L1') } }] });
+  assert.deepEqual(breve(primo.esiti), [
+    { tipo: 'Error', id: 2, colonna: 'STATIC C3 · CLUB MAT L1 · FIRST HALF', zona: 'Mats_L1', atteso: 'ALFA', trovato: 'BETA_MATS_L1' }]);
+  assert.deepEqual([...new Set(primo.animazioni.map((v) => [v.gruppo, v.atteso, v.zone[0].zona].join('|')))], ['Statics|ALFA|Mats_L1']);
+  const secondo = prova({ zone: ['LEFT LED', 'Mats_L1'], tipo: 'MATCH2', attesi: { MATS: TAPPETI },
+    slot: [{ mappe: {} }, { mappe: { 1: art('BETA_MATS_L1') } }, { mappe: { 1: art('ALFA_MATS_L1') } }] });
+  assert.deepEqual(breve(secondo.esiti), [
+    { tipo: 'Error', id: 2, colonna: 'STATIC D3 · CLUB MAT L1 · SECOND HALF', zona: 'Mats_L1', atteso: 'BETA', trovato: 'ALFA_MATS_L1' }]);
+});
+
+test('tappeto senza riga nel foglio STATIC ASSETS: un avviso per segmento, non si controlla', () => {
+  const c = prova({ zone: ['Mats_R1'], tipo: 'MATCH1', attesi: { MATS: TAPPETI }, slot: [{ mappe: {} }, { mappe: { 0: art('OMEGA_MATS_R1') } }, { mappe: { 0: art('OMEGA_MATS_R1') } }] });
+  assert.deepEqual(breve(c.esiti), [{ tipo: 'Warning', id: '-', colonna: '-', zona: 'Mats_R1', atteso: 'CLUB MAT in the Excel', trovato: 'not checked' }]);
+  assert.deepEqual(prova({ zone: ['Mats_R1'], tipo: 'MATCH1', slot: [{ mappe: {} }, { mappe: { 0: art('OMEGA_MATS_R1') } }] }).esiti.length, 1);
+});
+
+test('foglio unico: intervallo del tutto vuoto in partita (fine del tempo): tappeti e centreboard non si controllano', () => {
+  const c = prova({ feedUnico: true, zone: ['LEFT LED', 'CENTREBOARD', 'Mats_L1'], tipo: 'MATCH1', attesi: { CB: st('OMEGA', 'N12', 'CENTREBOARD'), MATS: TAPPETI },
+    slot: [{ mappe: { 0: BLANK, 1: BLANK } }, { mappe: { 0: art('ZETA_LED'), 1: art('OMEGA_CENTREBOARD'), 2: art('ALFA_MATS_L1') } }, { mappe: {} }] });
+  assert.deepEqual(c.esiti, []);
+  const buco = prova({ feedUnico: true, zone: ['LEFT LED', 'CENTREBOARD', 'Mats_L1'], tipo: 'MATCH1', attesi: { CB: st('OMEGA', 'N12', 'CENTREBOARD'), MATS: TAPPETI },
+    slot: [{ mappe: {} }, { mappe: { 0: art('ZETA_LED') } }] });
+  assert.deepEqual(breve(buco.esiti).map((e) => [e.zona, e.trovato]), [['CENTREBOARD', 'nothing'], ['Mats_L1', 'nothing']]);
+});
+
+test('attesi: i tappeti del feed unico, tempo per tempo', () => {
+  const statici = new Map([['MATS_L1@MATCH1|UNICO', st('ALFA', 'C3', 'X')], ['MATS_L1@MATCH2|UNICO', st('BETA', 'D3', 'Y')], ['CB|UNICO', st('OMEGA', 'N12', 'CENTREBOARD')]]);
+  const a = attesiStatici(statici, new Set(['UNICO']), () => {}, 'Feed');
+  assert.deepEqual([...a.MATS], [['MATS_L1@MATCH1', st('ALFA', 'C3', 'X')], ['MATS_L1@MATCH2', st('BETA', 'D3', 'Y')]]);
+  assert.deepEqual([...attesiStatici(new Map(), new Set(['EU']), () => {}, 'Feed').MATS], []);
 });

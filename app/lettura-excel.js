@@ -159,7 +159,34 @@
     return null;
   }
 
-  // Foglio unico con i due tempi affiancati: si guarda solo il primo foglio; niente statici né highlights. null se non è questo tipo di file.
+  // Foglio STATIC ASSETS accanto al foglio unico: righe CLUB MAT <lato> con il brand di ogni tempo, nelle colonne FIRST HALF e
+  // SECOND HALF. → Map 'MATS_<LATO>@MATCH1|UNICO' → { valore, cella, etichetta }; le altre righe e i fogli senza quelle colonne non contano.
+  function tappetiPerTempo(wb, XLSX) {
+    const out = new Map();
+    const nome = wb.SheetNames.slice(1).find((n) => k(n).includes('STATIC'));
+    if (!nome) return out;
+    const { valore, righe, colonne } = lettore(wb.Sheets[nome], XLSX);
+    const TEMPI = { FIRSTHALF: ['MATCH1', 'FIRST HALF'], '1STHALF': ['MATCH1', 'FIRST HALF'], SECONDHALF: ['MATCH2', 'SECOND HALF'], '2NDHALF': ['MATCH2', 'SECOND HALF'] };
+    for (let r = 0; r < righe; r++) {
+      const tempi = [];
+      for (let c = 0; c < colonne; c++) if (TEMPI[k(valore(r, c))]) tempi.push([c, ...TEMPI[k(valore(r, c))]]);
+      if (new Set(tempi.map((t) => t[1])).size < 2) continue;
+      for (let s = r + 1; s < righe; s++) {
+        const etichetta = valore(s, 0) === null ? '' : String(valore(s, 0)).trim();
+        const m = /^(?:CLUB)?MATS?([A-Z]*\d+)$/.exec(k(etichetta));
+        if (!m) continue;
+        tempi.forEach(([c, tempo, testa]) => {
+          const v = valore(s, c);
+          out.set(`MATS_${m[1]}@${tempo}|${REGIONE_UNICA}`, { valore: v === null ? null : String(v), cella: XLSX.utils.encode_col(c) + (s + 1), etichetta: `${etichetta} · ${testa}` });
+        });
+      }
+      break;
+    }
+    return out;
+  }
+
+  // Foglio unico con i due tempi affiancati, riconosciuto dal primo foglio; niente highlights. Statici: la nota CB: e, se c'è
+  // il foglio STATIC ASSETS, i tappeti di ogni tempo. null se non è questo tipo di file.
   function leggiDueTempi(wb, XLSX) {
     const nome = wb.SheetNames[0];
     const foglio = lettore(wb.Sheets[nome], XLSX);
@@ -174,7 +201,7 @@
     const titolo = [0, 1, 2].map((c) => foglio.valore(0, c)).find((v) => v !== null);
     const nota = notaCentreboard(foglio, XLSX);
     return { titolo: titolo === undefined ? '' : String(titolo), partite, hl: null, feedUnico: REGIONE_UNICA, avvisi,
-      statici: new Map(nota ? [[`CB|${REGIONE_UNICA}`, nota]] : []) };
+      statici: new Map([...(nota ? [[`CB|${REGIONE_UNICA}`, nota]] : []), ...tappetiPerTempo(wb, XLSX)]) };
   }
 
   function statici(ws, XLSX) {

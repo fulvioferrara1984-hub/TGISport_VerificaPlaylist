@@ -82,3 +82,8 @@ test('zone del feed unico: lati LED, centreboard e texture del prato', () => {
   assert.equal(ruoloZona('GRASS_LSX_MEDIUM'), 'TEXTURE');
   assert.equal(ruoloZona('GRASS_LDX_DARK'), 'TEXTURE');
 });
+
+test('tappeti del foglio unico (Mats_L1, MATS_R1, MAT_L2): asset statici, non LED', () => {
+  for (const z of ['Mats_L1', 'MATS_R1', 'MAT_L2']) assert.equal(ruoloZona(z, false), 'MATS', z);
+  assert.equal(ruoloZona('Left LED', false), 'LED1');
+});

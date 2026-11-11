@@ -48,7 +48,7 @@ function cartella({ fogli = ['PLAYLIST'], nomeHL = 'HL PLAYLIST', righeHL = [], 
 
 // Playlist a foglio unico: primo e secondo tempo affiancati, una sola colonna VIRTUAL FEED, nessuna regione.
 // righe1 / righe2: [id, secondi, brand]; nota: testo della cella N14 (es. 'CB: ALFA'); testaVirtual: intestazione della colonna dei brand.
-function cartellaDueTempi({ titolo = 'ALFA vs BETA', righe1 = [], righe2 = [], nota = null, altriFogli = [], testaVirtual = 'VIRTUAL FEED', nomeFoglio = 'Match Running Order' } = {}) {
+function cartellaDueTempi({ titolo = 'ALFA vs BETA', righe1 = [], righe2 = [], nota = null, altriFogli = [], testaVirtual = 'VIRTUAL FEED', nomeFoglio = 'Match Running Order', statici = null } = {}) {
   const aoa = [[null, titolo], ['SEASON', '2026-27'], ['COMPETITION', 'GROUP PHASE'], ['MATCH DAY', 'GROUP PHASE'], ['DATE', 46340], ['KO CET', 0.86], [],
     ['HOW TO FILL IN THE RUNNING ORDER:'], ['Please note'], [],
     ['FIRST HALF', null, null, null, null, null, null, 'SECOND HALF'],
@@ -60,6 +60,8 @@ function cartellaDueTempi({ titolo = 'ALFA vs BETA', righe1 = [], righe2 = [], n
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), nomeFoglio);
   altriFogli.forEach((f) => XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['APPUNTI']]), f));
+  // statici: righe [etichetta, primo tempo, secondo tempo] del foglio STATIC ASSETS (titolo in A1, intestazione in riga 2, valori in C e D)
+  if (statici) XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['STATIC ASSETS'], ['ASSET', null, 'FIRST HALF', 'SECOND HALF']].concat(statici.map(([e, a, b]) => [e, null, a, b]))), 'STATIC ASSETS');
   return XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
 }
 

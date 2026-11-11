@@ -88,7 +88,8 @@
     const ctxNomi = { alias: regole.alias || {}, casa: new Set(sqEv ? [sqEv[0]] : [nomi.k(String(ev.nome).split(/[-_ ]/)[0])]) };
     const angoliStatici = [...excel.statici.keys()].some((c) => c.startsWith('LC|'));
     let esiti = [];
-    const c = { zone: air.zone, angoliStatici, prefissoSponsor: regole.zoneSponsor && regole.zoneSponsor.prefisso, ctxNomi, giusti: new Set(), celle: { n: 0 }, cella: null };
+    const c = { zone: air.zone, angoliStatici, prefissoSponsor: regole.zoneSponsor && regole.zoneSponsor.prefisso, ctxNomi, giusti: new Set(), celle: { n: 0 }, cella: null,
+      feedUnico: Boolean(excel.feedUnico) };
     // fila delle zone LED in uso, dal pacchetto intero: una zona dimenticata per tutto un segmento resta da controllare
     c.filaZona = fileDelleZone(air.stream.flatMap((s) => s.segmenti), (z) => air.zone.get(z),
       (z) => ruoloZona(air.zone.get(z), angoliStatici, c.prefissoSponsor).startsWith('LED'));

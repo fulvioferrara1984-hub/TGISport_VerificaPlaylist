@@ -187,11 +187,14 @@ test('foglio unico: recupero che alterna le ultime due righe compilate, anche ol
     { tipo: 'Recovery', id, colonna: 'E · VIRTUAL FEED – First row', zona: '-', atteso: `repeat of ID ${n}`, trovato })));
 });
 
-test('foglio unico: nel recupero un brand estraneo o fuori posto è Error', () => {
+test('foglio unico: nel recupero un brand estraneo o fuori posto è Error, con il brand che il recupero doveva ripetere', () => {
   const altro = provaUnico({ righe: ['ALFA', 'BETA', null], slot: ['ALFA', 'BETA', 'OMEGA'] });
-  assert.deepEqual([...new Set(altro.esiti.map((e) => [e.tipo, e.id, e.atteso, e.trovato].join('|')))], ['Error|3|Blank|OMEGA_LED']);
+  assert.deepEqual([...new Set(altro.esiti.map((e) => [e.tipo, e.id, e.colonna, e.atteso, e.trovato].join('|')))], ['Error|3|E · VIRTUAL FEED – First row · repeat of ID 1|ALFA|OMEGA_LED']);
   const fuoriPosto = provaUnico({ righe: ['ALFA', 'BETA', null], slot: ['ALFA', 'BETA', 'BETA'] });
-  assert.deepEqual([...new Set(fuoriPosto.esiti.map((e) => [e.tipo, e.id, e.atteso, e.trovato].join('|')))], ['Error|3|Blank|BETA_LED']);
+  assert.deepEqual([...new Set(fuoriPosto.esiti.map((e) => [e.tipo, e.id, e.atteso, e.trovato].join('|')))], ['Error|3|ALFA|BETA_LED']);
+  const oltre = provaUnico({ righe: ['ALFA', 'BETA'], slot: ['ALFA', 'BETA', 'ALFA', 'OMEGA'] });
+  assert.deepEqual(oltre.esiti.map((e) => [e.tipo, e.id, e.atteso, e.trovato].join('|')), ['Recovery|slot 3|repeat of ID 1|ALFA',
+    'Error|slot 4|BETA|OMEGA_LED', 'Error|slot 4|BETA|OMEGA_LED']);
 });
 
 test('foglio unico: durata e ID si citano con le colonne del loro tempo', () => {

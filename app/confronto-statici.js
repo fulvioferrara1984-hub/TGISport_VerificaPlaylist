@@ -27,6 +27,9 @@
       }
       out[voce] = statici.get(`${voce}|${ordinate[0]}`) || { valore: null, cella: '', etichetta: voce };
     }
+    // tappeti del foglio unico: un brand per tempo, chiave 'MATS_<lato>@<tempo>'
+    out.MATS = new Map([...statici].filter(([chiave]) => chiave.startsWith('MATS_') && chiave.endsWith(`|${ordinate[0]}`))
+      .map(([chiave, v]) => [chiave.slice(0, chiave.lastIndexOf('|')), v]));
     return out;
   }
 
@@ -45,12 +48,16 @@
           zone: [{ zona, file: String(a.file).split('/').pop() }] });
       }
     };
-    const sconosciute = new Set(); // zone CLUB che non sono CLUB_LSX/USX/UDX/LDX: un solo avviso per segmento
+    const sconosciute = new Set(); // zone CLUB che non sono CLUB_LSX/USX/UDX/LDX e tappeti senza riga nell'Excel: un solo avviso per segmento
+    const tappeti = attesi.MATS || new Map();
     segmento.intervalli.forEach((iv, i) => {
       const perZona = new Map();
       iv.mappe.forEach((a, z) => perZona.set(c.zone.get(z), a));
       const leadIn = partita && i === 0;
       const id = partita ? i : i + 1;
+      // foglio unico: un intervallo senza nessuna zona in onda (l'ultimo di ogni tempo) non ha statici da vedere; i LED dentro le righe
+      // dell'Excel restano controllati dalla colonna dei brand
+      const vuoto = c.feedUnico && partita && iv.mappe.size === 0;
       for (const zn of c.zone.values()) {
         const ruolo = ruoloZona(zn, c.angoliStatici, c.prefissoSponsor);
         const a = perZona.get(zn);
@@ -66,12 +73,19 @@
             if (es === 'variante') nota('Variant', id, etichetta(voce), zn, String(atteso), a.ad);
             else if (es !== 'ok') nota(es === 'errore' ? 'Error' : 'Possible typo', id, etichetta(voce), zn, String(atteso || 'Circle_Empty'), a.ad);
           }
-        } else if (['SPONSOR', 'CLUB', 'ADD', 'LC', 'CB'].includes(ruolo)) {
+        } else if (['SPONSOR', 'CLUB', 'ADD', 'LC', 'CB', 'MATS'].includes(ruolo)) {
           if (ruolo === 'CB' && !attesi.CB.valore) continue; // senza la nota nell'Excel il centreboard non si controlla
+          if (vuoto) continue;
+          const tappeto = ruolo === 'MATS' && !(tipo === 'PRE' || leadIn) ? tappeti.get(`MATS_${zn.toUpperCase().replace(/^MATS?_/, '')}@${tipo}`) : null;
+          if (ruolo === 'MATS' && !(tipo === 'PRE' || leadIn) && !tappeto) {
+            if (!sconosciute.has(zn)) { sconosciute.add(zn); nota('Warning', '-', '-', zn, 'CLUB MAT in the Excel', 'not checked'); }
+            continue;
+          }
           c.cella = ++c.celle.n;
           let atteso; let col;
           if (tipo === 'PRE' || leadIn) { atteso = null; col = '-'; }
           else if (ruolo === 'SPONSOR') { atteso = sponsorAtteso; col = `Rule · ${sponsor.etichetta}`; }
+          else if (ruolo === 'MATS') { atteso = tappeto.valore; col = etichetta(tappeto); }
           else if (ruolo === 'ADD' && zn.toUpperCase().startsWith('ADD_') && solo('DOM')) { atteso = null; col = 'Rule · Domestic ADD zones'; }
           else if (ruolo === 'CLUB' && !MAT_ZONA[zn.toUpperCase()]) {
             if (!sconosciute.has(zn)) { sconosciute.add(zn); nota('Warning', '-', '-', zn, 'known CLUB zone', 'unknown zone'); }

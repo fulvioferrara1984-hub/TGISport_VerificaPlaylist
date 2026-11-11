@@ -100,3 +100,12 @@ test('nome Excel con una sigla in più: variante; due nomi con la parte finale i
 test('refuso nell’Excel con artwork _LED: possibile refuso', () => {
   assert.equal(confronta('ALFA FONDAZONE', art('ALFA_FONDAZIONE_LED'), ctx), 'refuso');
 });
+
+test('parole di posizione dei pacchetti a foglio unico: LEFT, RIGHT, MATS, L1, R1', () => {
+  assert.equal(chiaveBrand('ALFA_MATS_R1').chiave, 'ALFA');
+  assert.equal(chiaveBrand('BETA_MATS_L1').chiave, 'BETA');
+  assert.equal(chiaveBrand('GAMMA_APP_LED_RIGHT').chiave, 'GAMMAAPP');
+  assert.equal(chiaveBrand('DELTA_MULTIBRAND_LED_LEFT').chiave, 'DELTAMULTIBRAND');
+  assert.equal(confronta('Alfa', { ad: 'ALFA_MATS_R1' }, ctx), 'ok');
+  assert.equal(confronta('Gamma App', { ad: 'GAMMA_APP_LED_RIGHT' }, ctx), 'ok');
+});

@@ -92,8 +92,8 @@
           nota('Error', id, `${tabella.foglio} · ${cs.map((g) => NOME_REG[g]).join('/')}`, '-', 'same value (shared feed)', attesi.sort().join(' | '));
         }
         const r0 = cs[0];
-        const etichetta = `${lettera(tabella.colonne.get(`${r0}|${fila}`))} · ${NOME_REG[r0]} – ${fila === 1 ? 'First' : 'Second'} row`;
-        const e = riga.valori.get(`${r0}|${fila}`);
+        let etichetta = `${lettera(tabella.colonne.get(`${r0}|${fila}`))} · ${NOME_REG[r0]} – ${fila === 1 ? 'First' : 'Second'} row`;
+        let e = riga.valori.get(`${r0}|${fila}`);
         const arts = trovati[fila];
         if (!arts.length) {
           const altri = trovati[3 - fila].filter(([, , z]) => filaZona.get(z) === fila);
@@ -113,6 +113,9 @@
             vista(idx, id, fila, etichetta, eRec, `repeat of ID ${ultimaRiga.id}`, arts);
             continue;
           }
+          // foglio unico: un recupero che non ripete la riga del suo turno si confronta con quella, così l'errore dice il brand
+          // atteso (e un alias si riconosce); nella playlist classica resta il confronto con la riga vuota
+          if (eRec && ciclo > 1) { e = eRec; etichetta = `${etichetta} · repeat of ID ${ultimaRiga.id}`; }
         }
         // con un brand nell'Excel ogni zona usata di questa fila deve mostrare un artwork, non solo alcune
         if (e && String(e).trim()) vista(idx, id, fila, etichetta, e, '', arts);
