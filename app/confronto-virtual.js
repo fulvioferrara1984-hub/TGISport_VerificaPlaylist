@@ -32,6 +32,15 @@
     return esito;
   }
 
+  // Playlist con la riga LOOP: indice della riga da cui riparte il giro dopo l'ultima. Dalla seconda se l'ultima riga è
+  // uguale alla prima (l'ha appena ripetuta), altrimenti dalla prima.
+  function inizioGiro(righe) {
+    const [prima, ultima] = [righe[0], righe[righe.length - 1]];
+    const uguale = (a, b) => nomi.k(nomi.senzaCodici(a || '')) === nomi.k(nomi.senzaCodici(b || ''));
+    const chiavi = new Set([...prima.valori.keys(), ...ultima.valori.keys()]);
+    return righe.length > 1 && [...chiavi].every((x) => uguale(prima.valori.get(x), ultima.valori.get(x))) ? 1 : 0;
+  }
+
   const esito = (tipo, feed, segmento, id, colonna, zona, atteso, trovato) => ({ tipo, feed, segmento, id, colonna, zona, atteso, trovato });
   const secondi = (ms) => `${Number((ms / 1000).toPrecision(6))} s`;
 
@@ -59,10 +68,14 @@
     const ultima = piene.length ? piene[piene.length - 1] : null;
     const nZip = iv.length - base;
     const ciclo = tabella.cicloRecovery || 1; // quante righe, in fondo a quelle compilate, ripete il recupero
+    const daCapo = tabella.giro && righe.length ? inizioGiro(righe) : null;
     for (let pos = 1; pos <= Math.max(righe.length, nZip); pos++) {
       c.cella = null;
       const idx = pos - 1 + base;
       let riga = pos <= righe.length ? righe[pos - 1] : null;
+      // playlist con LOOP: uno slot oltre l'ultima riga ripete la riga del suo turno nel giro, come una cella normale
+      const giroDi = !riga && daCapo !== null && idx < iv.length ? righe[daCapo + ((pos - righe.length - 1) % (righe.length - daCapo))] : null;
+      if (giroDi) riga = { ...giroDi, id: `slot ${pos}` };
       // playlist col recupero: uno slot oltre l'ultima riga dell'Excel si controlla come una riga vuota
       if (!riga && ciclo > 1 && idx < iv.length) riga = { id: `slot ${pos}`, riga: null, durataMs: iv[idx].durata, durataTesto: '', valori: new Map() };
       const id = riga ? riga.id : `slot ${pos}`;
@@ -92,7 +105,7 @@
           nota('Error', id, `${tabella.foglio} · ${cs.map((g) => NOME_REG[g]).join('/')}`, '-', 'same value (shared feed)', attesi.sort().join(' | '));
         }
         const r0 = cs[0];
-        let etichetta = `${lettera(tabella.colonne.get(`${r0}|${fila}`))} · ${NOME_REG[r0]} – ${fila === 1 ? 'First' : 'Second'} row`;
+        let etichetta = `${lettera(tabella.colonne.get(`${r0}|${fila}`))} · ${NOME_REG[r0]} – ${fila === 1 ? 'First' : 'Second'} row${giroDi ? ` · loop of ID ${giroDi.id}` : ''}`;
         let e = riga.valori.get(`${r0}|${fila}`);
         const arts = trovati[fila];
         if (!arts.length) {
@@ -105,7 +118,7 @@
           }
           continue;
         }
-        if (!e && ultima && pos > ultima && tipo !== 'HL') {
+        if (!e && ultima && pos > ultima && tipo !== 'HL' && !tabella.giro) {
           const ultimaRiga = righe[Math.max(0, ultima - ciclo + ((pos - ultima - 1) % ciclo))]; // la riga di cui questo slot è il turno
           const eRec = ultimaRiga.valori.get(`${r0}|${fila}`);
           if (eRec && arts.every(([, a]) => ['ok', 'variante'].includes(confronta(c, eRec, a)))) {
@@ -137,5 +150,5 @@
     if (tipo === 'HL' && iv.length !== righe.length) nota('Warning', '-', '-', '-', `${righe.length} slots (Excel)`, `${iv.length} slots (AIR)`);
   }
 
-  return { NOME: 'confrontoVirtual', NOME_REG, lettera, confronta, controllaVirtual };
+  return { NOME: 'confrontoVirtual', NOME_REG, lettera, confronta, inizioGiro, controllaVirtual };
 });

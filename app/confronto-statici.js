@@ -76,7 +76,7 @@
         } else if (['SPONSOR', 'CLUB', 'ADD', 'LC', 'CB', 'MATS'].includes(ruolo)) {
           if (ruolo === 'CB' && !attesi.CB.valore) continue; // senza la nota nell'Excel il centreboard non si controlla
           if (vuoto) continue;
-          const tappeto = ruolo === 'MATS' && !(tipo === 'PRE' || leadIn) ? tappeti.get(`MATS_${zn.toUpperCase().replace(/^MATS?_/, '')}@${tipo}`) : null;
+          const tappeto = ruolo === 'MATS' && !(tipo === 'PRE' || leadIn) ? tappeti.get(`MATS_${zn.toUpperCase().replace(/^MATS?[_ ]/, '')}@${tipo}`) : null;
           if (ruolo === 'MATS' && !(tipo === 'PRE' || leadIn) && !tappeto) {
             if (!sconosciute.has(zn)) { sconosciute.add(zn); nota('Warning', '-', '-', zn, 'CLUB MAT in the Excel', 'not checked'); }
             continue;

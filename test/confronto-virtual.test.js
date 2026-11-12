@@ -166,11 +166,11 @@ test('animazioni: gli esiti non cambiano senza l\'aggancio', () => {
 });
 
 // Playlist a foglio unico: la colonna dei brand è una sola, e dopo l'ultima riga compilata il pacchetto alterna le ultime due
-function provaUnico({ righe, slot, colonnaId = 'A', colonnaDurata = 'C', tipo = 'MATCH1', nomeSeg = 'First Half' }) {
+function provaUnico({ righe, slot, colonnaId = 'A', colonnaDurata = 'C', tipo = 'MATCH1', nomeSeg = 'First Half', giro = false, durate = [] }) {
   const c = contesto({ zone: ['LEFT LED', 'RIGHT LED'] });
-  const tab = { ...tabella({ colonne: { 'UNICO|1': 4 }, righe: righe.map((v, i) => ({ id: i + 1, durataMs: 30000, durataTesto: '00:00:30', valori: v ? { 'UNICO|1': v } : {} })) }), colonnaId, colonnaDurata, cicloRecovery: 2 };
+  const tab = { ...tabella({ colonne: { 'UNICO|1': 4 }, righe: righe.map((v, i) => ({ id: i + 1, durataMs: 30000, durataTesto: '00:00:30', valori: v ? { 'UNICO|1': v } : {} })) }), colonnaId, colonnaDurata, cicloRecovery: 2, giro };
   const lato = (n) => (n ? art(`${n}_LED`, `LEGA_${n}`) : BLANK);
-  const seg = segmento(nomeSeg, [{ durata: 30000, mappe: { 0: BLANK, 1: BLANK } }].concat(slot.map((n) => ({ durata: 30000, mappe: { 0: lato(n), 1: lato(n) } }))));
+  const seg = segmento(nomeSeg, [{ durata: 30000, mappe: { 0: BLANK, 1: BLANK } }].concat(slot.map((n, i) => ({ durata: durate[i] || 30000, mappe: { 0: lato(n), 1: lato(n) } }))));
   controllaVirtual(c, stream('Feed Alfa', ['UNICO']), seg, tipo, tab);
   return c;
 }
@@ -211,4 +211,38 @@ test('foglio unico: durata e ID si citano con le colonne del loro tempo', () => 
 test('playlist normale: uno slot oltre l’ultima riga dell’Excel resta un errore', () => {
   const c = prova({ slot: [{ mappe: pieno }, { mappe: pieno }], righe: [{ valori: ALFA }] });
   assert.deepEqual(breve(c.esiti), [{ tipo: 'Error', id: 'slot 2', colonna: '-', zona: '-', atteso: 'Excel row', trovato: 'missing' }]);
+});
+
+// Foglio unico con la riga LOOP: dopo l'ultima riga il pacchetto ripete la playlist da capo, come celle normali
+test('LOOP: dopo l’ultima riga il pacchetto riparte dalla prima; slot contati come celle, nessun esito', () => {
+  const c = provaUnico({ giro: true, righe: ['ALFA', 'BETA'], slot: ['ALFA', 'BETA', 'ALFA', 'BETA', 'ALFA'] });
+  assert.deepEqual(c.esiti, []);
+  assert.equal(c.celle.n, 10);
+});
+
+test('LOOP: se l’ultima riga è uguale alla prima il giro riprende dalla seconda', () => {
+  const c = provaUnico({ giro: true, righe: ['ALFA', 'BETA', 'GAMMA', 'alfa'], slot: ['ALFA', 'BETA', 'GAMMA', 'ALFA', 'BETA', 'GAMMA', 'ALFA', 'BETA'] });
+  assert.deepEqual(c.esiti, []);
+});
+
+test('LOOP: uno slot che non ripete la riga del suo turno è Error, con il brand atteso e la riga del giro', () => {
+  const c = provaUnico({ giro: true, righe: ['ALFA', 'BETA', 'GAMMA', 'ALFA'], slot: ['ALFA', 'BETA', 'GAMMA', 'ALFA', 'ALFA', 'OMEGA'] });
+  assert.deepEqual(breve(c.esiti), [['slot 5', 'BETA', 'ALFA_LED', 2], ['slot 6', 'GAMMA', 'OMEGA_LED', 3]].flatMap(([id, atteso, trovato, n]) => ['LEFT LED', 'RIGHT LED'].map((zona) => (
+    { tipo: 'Error', id, colonna: `E · VIRTUAL FEED – First row · loop of ID ${n}`, zona, atteso, trovato }))));
+});
+
+test('LOOP: la durata di uno slot del giro si confronta con la riga che ripete', () => {
+  const c = provaUnico({ giro: true, righe: ['ALFA', 'BETA'], slot: ['ALFA', 'BETA', 'ALFA'], durate: [30000, 30000, 15000] });
+  assert.deepEqual(breve(c.esiti), [{ tipo: 'Error', id: 'slot 3', colonna: 'C6 · Duration', zona: '-', atteso: '00:00:30', trovato: '15 s' }]);
+});
+
+test('LOOP: animazioni degli slot del giro con il brand della riga ripetuta', () => {
+  const c = provaUnico({ giro: true, righe: ['ALFA', 'BETA'], slot: ['ALFA', 'BETA', 'ALFA'] });
+  assert.deepEqual(c.animazioni.map((v) => [v.slot, v.id, v.atteso, v.colonna]), [[1, 1, 'ALFA', 'E · VIRTUAL FEED – First row'], [2, 2, 'BETA', 'E · VIRTUAL FEED – First row'],
+    [3, 'slot 3', 'ALFA', 'E · VIRTUAL FEED – First row · loop of ID 1']]);
+});
+
+test('LOOP: una riga vuota prima del LOOP chiede il blank, niente recupero', () => {
+  const c = provaUnico({ giro: true, righe: ['ALFA', 'BETA', null], slot: ['ALFA', 'BETA', 'ALFA'] });
+  assert.deepEqual([...new Set(c.esiti.map((e) => [e.tipo, e.id, e.atteso, e.trovato].join('|')))], ['Error|3|Blank|ALFA_LED']);
 });

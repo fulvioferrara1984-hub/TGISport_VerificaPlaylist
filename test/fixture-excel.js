@@ -48,15 +48,21 @@ function cartella({ fogli = ['PLAYLIST'], nomeHL = 'HL PLAYLIST', righeHL = [], 
 
 // Playlist a foglio unico: primo e secondo tempo affiancati, una sola colonna VIRTUAL FEED, nessuna regione.
 // righe1 / righe2: [id, secondi, brand]; nota: testo della cella N14 (es. 'CB: ALFA'); testaVirtual: intestazione della colonna dei brand.
-function cartellaDueTempi({ titolo = 'ALFA vs BETA', righe1 = [], righe2 = [], nota = null, altriFogli = [], testaVirtual = 'VIRTUAL FEED', nomeFoglio = 'Match Running Order', statici = null } = {}) {
+// testate: colonne dopo la durata (default on-site LED + testaVirtual); con testate ogni riga è [id, secondi, valore di ogni testata].
+// codaTesta: celle in più nella riga d'intestazione, a destra del secondo tempo (es. una tabella pivot).
+function cartellaDueTempi({ titolo = 'ALFA vs BETA', righe1 = [], righe2 = [], nota = null, altriFogli = [], testaVirtual = 'VIRTUAL FEED', nomeFoglio = 'Match Running Order', statici = null,
+  testate = null, codaTesta = [] } = {}) {
+  const cols = testate || ['on-site\nLED', testaVirtual];
+  const testa2 = testate || ['on-site\nLED', testaVirtual + ' '];
   const aoa = [[null, titolo], ['SEASON', '2026-27'], ['COMPETITION', 'GROUP PHASE'], ['MATCH DAY', 'GROUP PHASE'], ['DATE', 46340], ['KO CET', 0.86], [],
     ['HOW TO FILL IN THE RUNNING ORDER:'], ['Please note'], [],
-    ['FIRST HALF', null, null, null, null, null, null, 'SECOND HALF'],
-    ['ID', 'MATCH TIME', 'Artwork duration', 'on-site\nLED', testaVirtual, null, null, 'ID', 'MATCH TIME', 'Artwork duration', 'on-site\nLED', testaVirtual + ' '],
+    ['FIRST HALF'].concat(Array(cols.length + 4).fill(null), ['SECOND HALF']),
+    ['ID', 'MATCH TIME', 'Artwork duration', ...cols, null, null, 'ID', 'MATCH TIME', 'Artwork duration', ...testa2, null, ...codaTesta],
     []];
   const n = Math.max(righe1.length, righe2.length);
-  const blocco = (r) => (r ? [r[0], 0, r[1] / 86400, null, r[2] === undefined ? null : r[2], null, null] : [null, null, null, null, null, null, null]);
-  for (let i = 0; i < n; i++) aoa.push(blocco(righe1[i]).concat(blocco(righe2[i]).slice(0, 5), i === 0 && nota ? [null, nota] : []));
+  const valori = (r) => (testate ? cols.map((_, j) => (r[2 + j] === undefined ? null : r[2 + j])) : [null, r[2] === undefined ? null : r[2]]);
+  const blocco = (r) => (r ? [r[0], 0, r[1] / 86400, ...valori(r), null, null] : Array(cols.length + 5).fill(null));
+  for (let i = 0; i < n; i++) aoa.push(blocco(righe1[i]).concat(blocco(righe2[i]).slice(0, cols.length + 3), i === 0 && nota ? [null, nota] : []));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), nomeFoglio);
   altriFogli.forEach((f) => XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['APPUNTI']]), f));

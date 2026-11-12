@@ -87,3 +87,7 @@ test('tappeti del foglio unico (Mats_L1, MATS_R1, MAT_L2): asset statici, non LE
   for (const z of ['Mats_L1', 'MATS_R1', 'MAT_L2']) assert.equal(ruoloZona(z, false), 'MATS', z);
   assert.equal(ruoloZona('Left LED', false), 'LED1');
 });
+
+test('tappeti col nome staccato (Mats L1, MATS R1): asset statici come Mats_L1', () => {
+  for (const z of ['Mats L1', 'MATS R1']) assert.equal(ruoloZona(z, false), 'MATS', z);
+});

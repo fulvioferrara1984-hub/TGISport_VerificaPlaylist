@@ -344,3 +344,33 @@ test('foglio unico con STATIC ASSETS: un tappeto sbagliato esce nel suo tempo, c
   assert.deepEqual([...new Set(sbagliati.map((e) => [e.tipo, e.segmento, e.colonna, e.atteso, e.trovato].join('|')))], ['Error|Second Half|STATIC D3 · CLUB MAT L1 · SECOND HALF|SIGMA|KAPPA_MATS_L1']);
   assert.equal(sbagliati.length, 6);
 });
+
+// Foglio unico con la colonna "… FEED …", la seconda fila "2* ROW" e la riga LOOP, con la lettura del file Excel e il motore
+function modelloGiro({ seconda = () => 'OMEGA', mat = () => 'KAPPA' } = {}) {
+  const { XLSX } = require('./aiuto.js').librerie();
+  const { leggiExcel } = require('../app/lettura-excel.js');
+  const { cartellaDueTempi } = require('./fixture-excel.js');
+  const righe = [[1, 30, 'ALFA', 'OMEGA'], [2, 30, 'BETA', 'OMEGA'], [3, 30, 'ALFA', 'OMEGA'], [92, 30, 'LOOP', 'LOOP'], [93, 30], [94, 30]];
+  const excel = leggiExcel(cartellaDueTempi({ testate: ['AWAY NATIONAL FEED PITCH VBR', '2* ROW'], righe1: righe, righe2: righe,
+    statici: [['CLUB MAT L1', 'KAPPA', 'KAPPA']] }), XLSX);
+  // 6 slot per tempo: le 3 righe, poi il giro riprende dalla seconda (l'ultima riga è uguale alla prima)
+  const giro = ['ALFA', 'BETA', 'ALFA', 'BETA', 'ALFA', 'BETA'];
+  const pieno = (t) => (n, i) => ({ durata: 30000, mappe: { 0: art(`${n}_LED_LEFT`), 1: art(`${n}_LED_RIGHT`), 2: art(`${seconda(i + 1)}_LED_GL2`), 3: art(`${mat(t)}_MATS`) } });
+  const tempo = (t) => [{ durata: 30000, mappe: { 0: BLANK, 1: BLANK, 2: BLANK } }].concat(giro.map(pieno(t)));
+  const air = { evento: { nome: 'Alfa vs Beta', data: '2026-11-16', venue: 'Stadio Prova' }, zone: new Map(['LED Left', 'LED Right', '2nd Row Left', 'Mats L1'].map((z, i) => [i, z])),
+    stream: [{ nome: 'Feed Alfa', regioni: new Set(), segmenti: [segmento('Pre Game', [{ durata: 30000, mappe: { 0: BLANK, 1: BLANK, 2: BLANK } }]), segmento('First Half', tempo(1)), segmento('Second Half', tempo(2))] }] };
+  return verifica(excel, air, REGOLE);
+}
+
+test('foglio unico con LOOP e seconda fila: il pacchetto che ripete la playlist da capo non ha esiti', () => {
+  const r = modelloGiro();
+  assert.deepEqual(r.esiti, []);
+  assert.ok(r.animazioni.some((v) => v.id === 'slot 5' && v.gruppo === 'Second row' && v.atteso === 'OMEGA'));
+});
+
+test('foglio unico con LOOP: seconda fila e tappeto sbagliati escono con la riga del giro e la cella del foglio', () => {
+  const r = modelloGiro({ seconda: (slot) => (slot === 5 ? 'SIGMA' : 'OMEGA'), mat: (t) => (t === 2 ? 'ZETA' : 'KAPPA') });
+  const righe = [...new Set(r.esiti.map((e) => [e.tipo, e.segmento, String(e.id), e.colonna, e.zona, e.atteso, e.trovato].join('|')))];
+  assert.ok(righe.includes('Error|First Half|slot 5|E · VIRTUAL FEED – Second row · loop of ID 3|2nd Row Left|OMEGA|SIGMA_LED_GL2'), righe.join('\n'));
+  assert.ok(righe.includes('Error|Second Half|1|STATIC D3 · CLUB MAT L1 · SECOND HALF|Mats L1|KAPPA|ZETA_MATS'), righe.join('\n'));
+});

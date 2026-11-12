@@ -171,6 +171,13 @@ test('tappeti: il brand del loro tempo in ogni slot, mai nel lead-in; un altro b
     { tipo: 'Error', id: 2, colonna: 'STATIC D3 · CLUB MAT L1 · SECOND HALF', zona: 'Mats_L1', atteso: 'BETA', trovato: 'ALFA_MATS_L1' }]);
 });
 
+test('tappeti col nome staccato (Mats L1): stessa riga CLUB MAT L1', () => {
+  const c = prova({ zone: ['LEFT LED', 'Mats L1'], tipo: 'MATCH1', attesi: { MATS: TAPPETI },
+    slot: [{ mappe: {} }, { mappe: { 1: art('ALFA_MATS') } }, { mappe: { 1: art('BETA_MATS') } }] });
+  assert.deepEqual(breve(c.esiti), [
+    { tipo: 'Error', id: 2, colonna: 'STATIC C3 · CLUB MAT L1 · FIRST HALF', zona: 'Mats L1', atteso: 'ALFA', trovato: 'BETA_MATS' }]);
+});
+
 test('tappeto senza riga nel foglio STATIC ASSETS: un avviso per segmento, non si controlla', () => {
   const c = prova({ zone: ['Mats_R1'], tipo: 'MATCH1', attesi: { MATS: TAPPETI }, slot: [{ mappe: {} }, { mappe: { 0: art('OMEGA_MATS_R1') } }, { mappe: { 0: art('OMEGA_MATS_R1') } }] });
   assert.deepEqual(breve(c.esiti), [{ tipo: 'Warning', id: '-', colonna: '-', zona: 'Mats_R1', atteso: 'CLUB MAT in the Excel', trovato: 'not checked' }]);

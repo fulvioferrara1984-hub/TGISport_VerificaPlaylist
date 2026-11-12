@@ -169,3 +169,43 @@ test('foglio unico con il foglio STATIC ASSETS: i tappeti CLUB MAT con il brand 
     ['MATS_R1@MATCH2|UNICO', { valore: 'Gamma', cella: 'D4', etichetta: 'CLUB MAT R1 · SECOND HALF' }],
   ]);
 });
+
+// Foglio unico con la colonna dei brand "… FEED …" (non VIRTUAL FEED) e la colonna della seconda fila "2* ROW"
+const NAZIONALE = ['AWAY NATIONAL FEED PITCH VBR', '2* ROW'];
+
+test('foglio unico con la colonna … FEED … e la 2* ROW: brand di prima e seconda fila', () => {
+  const x = leggiExcel(cartellaDueTempi({ testate: NAZIONALE, righe1: [[1, 30, 'Alfa', 'Kappa'], [2, 30, 'Beta', 'Kappa']], righe2: [[1, 30, 'Gamma', 'Kappa']] }), XLSX);
+  const [a, b] = [x.partite.MATCH1, x.partite.MATCH2];
+  assert.equal(x.feedUnico, 'UNICO');
+  assert.deepEqual([...a.colonne], [['UNICO|1', 3], ['UNICO|2', 4]]);
+  assert.deepEqual([...b.colonne], [['UNICO|1', 10], ['UNICO|2', 11]]);
+  assert.equal(a.soloPrimaFila, false);
+  assert.deepEqual(a.righe.map((r) => [r.id, r.valori.get('UNICO|1'), r.valori.get('UNICO|2')]), [[1, 'Alfa', 'Kappa'], [2, 'Beta', 'Kappa']]);
+  assert.deepEqual(b.righe.map((r) => [r.id, r.valori.get('UNICO|1'), r.valori.get('UNICO|2')]), [[1, 'Gamma', 'Kappa']]);
+});
+
+test('foglio unico: la riga LOOP chiude la playlist, le righe sotto non contano', () => {
+  const x = leggiExcel(cartellaDueTempi({ testate: NAZIONALE,
+    righe1: [[1, 30, 'Alfa', 'Kappa'], [2, 30, 'Beta', 'Kappa'], [92, 30, 'LOOP', 'LOOP'], [93, 30], [94, 30]],
+    righe2: [[1, 30, 'Gamma', 'Kappa'], [2, 30, ' Loop ', null], [3, 30]] }), XLSX);
+  const [a, b] = [x.partite.MATCH1, x.partite.MATCH2];
+  assert.deepEqual(a.righe.map((r) => r.id), [1, 2]);
+  assert.deepEqual(b.righe.map((r) => r.id), [1]);
+  assert.deepEqual([a.giro, b.giro], [true, true]);
+});
+
+test('foglio unico senza riga LOOP: nessun giro, resta il recupero', () => {
+  const x = leggiExcel(cartellaDueTempi({ testate: NAZIONALE, righe1: [[1, 30, 'Alfa', 'Kappa']], righe2: [[1, 30, 'Beta', 'Kappa']] }), XLSX);
+  assert.deepEqual([x.partite.MATCH1.giro, x.partite.MATCH1.cicloRecovery], [false, 2]);
+});
+
+test('foglio unico: una tabella pivot a destra del secondo tempo non si scambia per la colonna dei brand', () => {
+  const x = leggiExcel(cartellaDueTempi({ testate: NAZIONALE, codaTesta: ['Row Labels', 'Count of AWAY NATIONAL FEED PITCH'],
+    righe1: [[1, 30, 'Alfa', 'Kappa']], righe2: [[1, 30, 'Beta', 'Kappa']] }), XLSX);
+  assert.deepEqual([...x.partite.MATCH2.colonne], [['UNICO|1', 10], ['UNICO|2', 11]]);
+});
+
+test('foglio unico: sotto la riga LOOP un ID non numerico non dà avvisi', () => {
+  const x = leggiExcel(cartellaDueTempi({ testate: NAZIONALE, righe1: [[1, 30, 'Alfa', 'Kappa'], ['x', 30, 'LOOP'], ['nota', 30]], righe2: [['1a', 30, 'Beta', 'Kappa']] }), XLSX);
+  assert.deepEqual(x.avvisi.map((a) => a.id), ['1a']);
+});

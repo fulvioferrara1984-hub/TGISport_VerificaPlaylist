@@ -130,21 +130,33 @@
     return null;
   }
 
-  // Un tempo del foglio affiancato: le sue colonne stanno tra la sua colonna ID e quella del tempo dopo.
+  const SECONDA_FILA = /^(2|2ND|SECOND)ROW/; // "2* ROW", "2ND ROW": i brand della seconda fila
+  const giro = (v) => k(v) === 'LOOP';
+
+  // Un tempo del foglio affiancato: le sue colonne stanno tra la sua colonna ID e quella del tempo dopo. Brand di prima fila
+  // nella colonna VIRTUAL FEED o "… FEED …" (la prima da sinistra), di seconda fila nella "2* ROW" se c'è.
+  // Una riga LOOP chiude la playlist: le righe sotto non contano e il pacchetto la ripete da capo (giro).
   function tabellaDiUnTempo(nome, foglio, XLSX, testa, inizio, fine, avvisi) {
     const cerca = (prova) => {
       for (let c = inizio + 1; c < fine; c++) if (prova(k(foglio.valore(testa, c)))) return c;
       return -1;
     };
     const colDurata = cerca((h) => h.includes('DURATION'));
-    const colBrand = cerca((h) => h.startsWith('VIRTUALFEED'));
+    const colBrand = cerca((h) => (h.startsWith('VIRTUALFEED') || h.includes('FEED')) && !SECONDA_FILA.test(h));
+    const colSeconda = cerca((h) => SECONDA_FILA.test(h));
     if (colDurata < 0) throw new Error(`The sheet "${nome}" has no artwork duration column.`);
     if (colBrand < 0) throw new Error(`The sheet "${nome}" has no VIRTUAL FEED column.`);
     const letteraId = XLSX.utils.encode_col(inizio);
-    const colonne = new Map([[`${REGIONE_UNICA}|1`, colBrand]]);
-    const righe = leggiRighe({ nome, valore: foglio.valore, da: testa + 1, a: foglio.righe, colonne, avvisi, colId: inizio, colDurata, letteraId: inizio ? letteraId : null });
-    // cicloRecovery: dopo l'ultima riga compilata il pacchetto ripete in alternanza le ultime due
-    return { foglio: nome, colonne, soloPrimaFila: true, colonnaId: letteraId, colonnaDurata: XLSX.utils.encode_col(colDurata), cicloRecovery: 2, righe };
+    const colonne = new Map([[`${REGIONE_UNICA}|1`, colBrand]].concat(colSeconda < 0 ? [] : [[`${REGIONE_UNICA}|2`, colSeconda]]));
+    const propri = [];
+    const tutte = leggiRighe({ nome, valore: foglio.valore, da: testa + 1, a: foglio.righe, colonne, avvisi: propri, colId: inizio, colDurata, letteraId: inizio ? letteraId : null });
+    const fineGiro = tutte.findIndex((r) => giro(r.valori.get(`${REGIONE_UNICA}|1`)));
+    const righe = fineGiro < 0 ? tutte : tutte.slice(0, fineGiro);
+    // gli ID non numerici dalla riga LOOP in giù sono del modello, non della playlist
+    avvisi.push(...propri.filter((a) => fineGiro < 0 || a.riga < tutte[fineGiro].riga));
+    // cicloRecovery: senza LOOP, dopo l'ultima riga compilata il pacchetto ripete in alternanza le ultime due
+    return { foglio: nome, colonne, soloPrimaFila: colSeconda < 0, colonnaId: letteraId, colonnaDurata: XLSX.utils.encode_col(colDurata), cicloRecovery: 2,
+      giro: fineGiro >= 0, righe };
   }
 
   // Cella "CB: <brand>" in qualunque punto del foglio: il brand del centreboard per tutta la partita.
