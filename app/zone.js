@@ -13,7 +13,7 @@
   function ruoloZona(nome, angoliStatici, prefissoSponsor) {
     const u = String(nome).toUpperCase();
     if (u === 'CC') return 'CC';
-    if (u.replace(/[^A-Z]/g, '') === 'CENTREBOARD') return 'CB';
+    if (['CENTREBOARD', 'CENTERBOARD'].includes(u.replace(/[^A-Z]/g, ''))) return 'CB'; // anche all'americana
     if (u.startsWith('GRASS_')) return 'TEXTURE'; // texture del prato: non è pubblicità, non si controlla
     if (/^MATS?[_ ]/.test(u)) return 'MATS'; // tappeti del foglio unico (Mats_L1, Mats L1…): statici, col brand di ogni tempo da STATIC ASSETS
     if (u === 'RSX' || u === 'RDX') return 'ADD';

@@ -209,3 +209,10 @@ test('foglio unico: sotto la riga LOOP un ID non numerico non dà avvisi', () =>
   const x = leggiExcel(cartellaDueTempi({ testate: NAZIONALE, righe1: [[1, 30, 'Alfa', 'Kappa'], ['x', 30, 'LOOP'], ['nota', 30]], righe2: [['1a', 30, 'Beta', 'Kappa']] }), XLSX);
   assert.deepEqual(x.avvisi.map((a) => a.id), ['1a']);
 });
+
+test('foglio unico: la riga LOOP senza ID chiude comunque la playlist', () => {
+  const x = leggiExcel(cartellaDueTempi({ testate: ['AWAY NATIONAL FEED PITCH VBR'],
+    righe1: [[1, 30, 'Alfa'], [2, 30, 'Beta'], [null, null, 'Loop'], [93, 30]], righe2: [[1, 30, 'Gamma'], [null, null, 'Loop']] }), XLSX);
+  assert.deepEqual([x.partite.MATCH1.righe.map((r) => r.id), x.partite.MATCH2.righe.map((r) => r.id)], [[1, 2], [1]]);
+  assert.deepEqual([x.partite.MATCH1.giro, x.partite.MATCH2.giro], [true, true]);
+});

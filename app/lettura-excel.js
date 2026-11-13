@@ -150,13 +150,15 @@
     const colonne = new Map([[`${REGIONE_UNICA}|1`, colBrand]].concat(colSeconda < 0 ? [] : [[`${REGIONE_UNICA}|2`, colSeconda]]));
     const propri = [];
     const tutte = leggiRighe({ nome, valore: foglio.valore, da: testa + 1, a: foglio.righe, colonne, avvisi: propri, colId: inizio, colDurata, letteraId: inizio ? letteraId : null });
-    const fineGiro = tutte.findIndex((r) => giro(r.valori.get(`${REGIONE_UNICA}|1`)));
-    const righe = fineGiro < 0 ? tutte : tutte.slice(0, fineGiro);
-    // gli ID non numerici dalla riga LOOP in giù sono del modello, non della playlist
-    avvisi.push(...propri.filter((a) => fineGiro < 0 || a.riga < tutte[fineGiro].riga));
+    // riga LOOP (anche senza ID): da lì in giù è modello, non playlist (righe e ID non numerici)
+    let rigaGiro = null;
+    for (let r = testa + 1; r < foglio.righe && rigaGiro === null; r++) if (giro(foglio.valore(r, colBrand))) rigaGiro = r + 1;
+    const prima = (x) => rigaGiro === null || x.riga < rigaGiro;
+    const righe = tutte.filter(prima);
+    avvisi.push(...propri.filter(prima));
     // cicloRecovery: senza LOOP, dopo l'ultima riga compilata il pacchetto ripete in alternanza le ultime due
     return { foglio: nome, colonne, soloPrimaFila: colSeconda < 0, colonnaId: letteraId, colonnaDurata: XLSX.utils.encode_col(colDurata), cicloRecovery: 2,
-      giro: fineGiro >= 0, righe };
+      giro: rigaGiro !== null, righe };
   }
 
   // Cella "CB: <brand>" in qualunque punto del foglio: il brand del centreboard per tutta la partita.

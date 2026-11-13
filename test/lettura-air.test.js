@@ -143,3 +143,8 @@ test('ad che si chiama blank, in minuscolo: è il Blank di sempre; un brand che 
   assert.equal(iv.mappe.get(0).file, '../advertisements/1_blank.png');
   assert.equal(iv.mappe.get(1).ad, 'BLANKET_LED');
 });
+
+test('nomi di ad e advertiser con entità (A&amp;B): decodificati come il venue', () => {
+  const iv = parseSequenza(hdmSequenza([{ inizio: 0, durata: 30000, mappe: [['12', [0]]] }], { 12: ['A&amp;B_FOOD_LEFT_RIGHT', 'A&amp;B_FOOD_1', '../advertisements/7_ab_food_1.mp4'] }));
+  assert.deepEqual(iv[0].mappe.get(0), { ad: 'A&B_FOOD_LEFT_RIGHT', advertiser: 'A&B_FOOD_1', file: '../advertisements/7_ab_food_1.mp4' });
+});

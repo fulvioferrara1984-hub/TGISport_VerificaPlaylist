@@ -34,14 +34,14 @@
     const inserzionisti = new Map();
     for (const m of testo.matchAll(/^advertiser = (\d+)\s*\{([\s\S]*?)\}/gm)) {
       const n = /name = (.*)/.exec(m[2]);
-      if (n) inserzionisti.set(m[1], n[1].trim());
+      if (n) inserzionisti.set(m[1], decodificaEntita(n[1].trim()));
     }
     const ads = new Map();
     for (const m of testo.matchAll(/^ad = (\d+)\s*\{([\s\S]*?)\}/gm)) {
       const nome = /name = (.*)/.exec(m[2]);
       const a = /advertiser = (\d+)/.exec(m[2]);
       const f = /file = (.*)/.exec(m[2]);
-      const nomeAd = nome ? nome[1].trim() : '';
+      const nomeAd = nome ? decodificaEntita(nome[1].trim()) : ''; // es. A&amp;B
       // alcuni pacchetti chiamano "blank" il Blank_Generic: per il controllo è lo stesso
       ads.set(m[1], { ad: k(nomeAd) === 'BLANK' ? 'Blank_Generic' : nomeAd, advertiser: a ? inserzionisti.get(a[1]) || null : null, file: f ? f[1].trim() : '' });
     }

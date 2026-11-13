@@ -374,3 +374,18 @@ test('foglio unico con LOOP: seconda fila e tappeto sbagliati escono con la riga
   assert.ok(righe.includes('Error|First Half|slot 5|E · VIRTUAL FEED – Second row · loop of ID 3|2nd Row Left|OMEGA|SIGMA_LED_GL2'), righe.join('\n'));
   assert.ok(righe.includes('Error|Second Half|1|STATIC D3 · CLUB MAT L1 · SECOND HALF|Mats L1|KAPPA|ZETA_MATS'), righe.join('\n'));
 });
+
+test('foglio unico con LOOP senza ID e zona CENTERBOARD senza nota CB: il giro da capo e il centreboard non danno esiti', () => {
+  const { XLSX } = require('./aiuto.js').librerie();
+  const { leggiExcel } = require('../app/lettura-excel.js');
+  const { cartellaDueTempi } = require('./fixture-excel.js');
+  const righe = [[1, 30, 'ALFA'], [2, 30, 'BETA'], [null, null, 'Loop']];
+  const excel = leggiExcel(cartellaDueTempi({ testate: ['AWAY NATIONAL FEED PITCH VBR'], righe1: righe, righe2: righe }), XLSX);
+  const pieno = (n) => ({ durata: 30000, mappe: { 0: art(`${n}_LEFT_RIGHT`), 1: art('OMEGA_CENTERBOARD'), 2: art(`${n}_LEFT_RIGHT`) } });
+  const tempo = () => [{ durata: 30000, mappe: { 0: BLANK, 1: BLANK, 2: BLANK } }].concat(['ALFA', 'BETA', 'ALFA', 'BETA', 'ALFA'].map(pieno));
+  const air = { evento: { nome: 'Alfa vs Beta', data: '2026-11-16', venue: 'Stadio Prova' }, zone: new Map(['LED LEFT', 'CENTERBOARD', 'LED RIGHT'].map((z, i) => [i, z])),
+    stream: [{ nome: 'Feed Alfa', regioni: new Set(), segmenti: [segmento('Pre Game', [{ durata: 30000, mappe: { 0: BLANK, 1: BLANK, 2: BLANK } }]), segmento('First Half', tempo()), segmento('Second Half', tempo())] }] };
+  const r = verifica(excel, air, REGOLE);
+  assert.deepEqual(r.esiti, []);
+  assert.equal(r.animazioni.filter((v) => v.zone.some((z) => z.zona === 'CENTERBOARD')).length, 0);
+});

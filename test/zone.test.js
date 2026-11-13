@@ -91,3 +91,7 @@ test('tappeti del foglio unico (Mats_L1, MATS_R1, MAT_L2): asset statici, non LE
 test('tappeti col nome staccato (Mats L1, MATS R1): asset statici come Mats_L1', () => {
   for (const z of ['Mats L1', 'MATS R1']) assert.equal(ruoloZona(z, false), 'MATS', z);
 });
+
+test('centreboard scritto all’americana (CENTERBOARD, Centerboard): stessa zona CB', () => {
+  for (const z of ['CENTERBOARD', 'Centerboard', 'CENTREBOARD']) assert.equal(ruoloZona(z, false), 'CB', z);
+});
