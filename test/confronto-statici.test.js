@@ -178,9 +178,10 @@ test('tappeti col nome staccato (Mats L1): stessa riga CLUB MAT L1', () => {
     { tipo: 'Error', id: 2, colonna: 'STATIC C3 · CLUB MAT L1 · FIRST HALF', zona: 'Mats L1', atteso: 'ALFA', trovato: 'BETA_MATS' }]);
 });
 
-test('tappeto senza riga nel foglio STATIC ASSETS: un avviso per segmento, non si controlla', () => {
+test('tappeto senza riga nel foglio STATIC ASSETS: un avviso per segmento, non si controlla; la riga L1 senza zona è Error', () => {
   const c = prova({ zone: ['Mats_R1'], tipo: 'MATCH1', attesi: { MATS: TAPPETI }, slot: [{ mappe: {} }, { mappe: { 0: art('OMEGA_MATS_R1') } }, { mappe: { 0: art('OMEGA_MATS_R1') } }] });
-  assert.deepEqual(breve(c.esiti), [{ tipo: 'Warning', id: '-', colonna: '-', zona: 'Mats_R1', atteso: 'CLUB MAT in the Excel', trovato: 'not checked' }]);
+  assert.deepEqual(breve(c.esiti), [{ tipo: 'Warning', id: '-', colonna: '-', zona: 'Mats_R1', atteso: 'CLUB MAT in the Excel', trovato: 'not checked' },
+    { tipo: 'Error', id: '-', colonna: 'STATIC C3 · CLUB MAT L1 · FIRST HALF', zona: '-', atteso: 'ALFA', trovato: 'no mat zone' }]);
   assert.deepEqual(prova({ zone: ['Mats_R1'], tipo: 'MATCH1', slot: [{ mappe: {} }, { mappe: { 0: art('OMEGA_MATS_R1') } }] }).esiti.length, 1);
 });
 
@@ -198,4 +199,46 @@ test('attesi: i tappeti del feed unico, tempo per tempo', () => {
   const a = attesiStatici(statici, new Set(['UNICO']), () => {}, 'Feed');
   assert.deepEqual([...a.MATS], [['MATS_L1@MATCH1', st('ALFA', 'C3', 'X')], ['MATS_L1@MATCH2', st('BETA', 'D3', 'Y')]]);
   assert.deepEqual([...attesiStatici(new Map(), new Set(['EU']), () => {}, 'Feed').MATS], []);
+});
+
+// Tappeti di un lato confrontati per brand, non per numero: l'Excel e il pacchetto possono numerarli da capi opposti
+const LATO = new Map([['MATS_L1@MATCH1', st('ALFA', 'C3', 'CLUB MAT L1 · FIRST HALF')], ['MATS_L2@MATCH1', st('BETA', 'C4', 'CLUB MAT L2 · FIRST HALF')]]);
+const tappetiLato = (zone, arts) => prova({ zone, tipo: 'MATCH1', attesi: { MATS: LATO },
+  slot: [{ mappe: {} }, { mappe: Object.fromEntries(arts.map((a, i) => [i, a]).filter(([, a]) => a)) }] });
+
+test('tappeti per lato: numerati al contrario nel pacchetto, nessun esito; ognuno con la riga del suo brand', () => {
+  const c = tappetiLato(['Mats_L1', 'Mats_L2'], [art('BETA_MATS_L1'), art('ALFA_MATS_L2')]);
+  assert.deepEqual(c.esiti, []);
+  assert.deepEqual(c.animazioni.map((v) => [v.zone[0].zona, v.atteso, v.colonna]), [
+    ['Mats_L1', 'BETA', 'STATIC C4 · CLUB MAT L2 · FIRST HALF'], ['Mats_L2', 'ALFA', 'STATIC C3 · CLUB MAT L1 · FIRST HALF']]);
+});
+
+test('tappeti per lato: zone col nome dello sponsor (BETA_L1), stesso confronto per brand', () => {
+  assert.deepEqual(tappetiLato(['BETA_L1', 'ALFA_L2'], [art('BETA_L1'), art('ALFA_L2')]).esiti, []);
+});
+
+test('tappeti per lato: due zone con lo stesso brand, la seconda è Error col brand che manca', () => {
+  const c = tappetiLato(['Mats_L1', 'Mats_L2'], [art('ALFA_MATS_L1'), art('ALFA_MATS_L2')]);
+  assert.deepEqual(breve(c.esiti), [{ tipo: 'Error', id: 1, colonna: 'STATIC C4 · CLUB MAT L2 · FIRST HALF', zona: 'Mats_L2', atteso: 'BETA', trovato: 'ALFA_MATS_L2' }]);
+});
+
+test('tappeti per lato: una zona vuota è Error col brand rimasto', () => {
+  const c = tappetiLato(['Mats_L1', 'Mats_L2'], [null, art('ALFA_MATS_L2')]);
+  assert.deepEqual(breve(c.esiti), [{ tipo: 'Error', id: 1, colonna: 'STATIC C4 · CLUB MAT L2 · FIRST HALF', zona: 'Mats_L1', atteso: 'BETA', trovato: 'nothing' }]);
+});
+
+test('tappeti per lato: una riga dell’Excel senza zona nel pacchetto è Error, una volta per segmento', () => {
+  const c = prova({ zone: ['Mats_L1'], tipo: 'MATCH1', attesi: { MATS: LATO }, slot: [{ mappe: {} }, { mappe: { 0: art('ALFA_MATS_L1') } }, { mappe: { 0: art('ALFA_MATS_L1') } }] });
+  assert.deepEqual(breve(c.esiti), [{ tipo: 'Error', id: '-', colonna: 'STATIC C4 · CLUB MAT L2 · FIRST HALF', zona: '-', atteso: 'BETA', trovato: 'no mat zone' }]);
+});
+
+test('tappeti per lato: più zone che righe, la zona in più non si controlla (un avviso)', () => {
+  const c = tappetiLato(['Mats_L1', 'Mats_L2', 'Mats_L3'], [art('ALFA_MATS_L1'), art('BETA_MATS_L2'), art('OMEGA_MATS_L3')]);
+  assert.deepEqual(breve(c.esiti), [{ tipo: 'Warning', id: '-', colonna: '-', zona: 'Mats_L3', atteso: 'CLUB MAT in the Excel', trovato: 'not checked' }]);
+});
+
+test('tappeti per lato: col nome dello sponsor, l’errore va sulla zona che mostra il brand sbagliato, non su quella giusta', () => {
+  // ALFA_L1 mostra il file di BETA, che è già nella sua zona BETA_L2: sbagliata è ALFA_L1
+  const c = tappetiLato(['ALFA_L1', 'BETA_L2'], [art('BETA_L2'), art('BETA_L2')]);
+  assert.deepEqual(breve(c.esiti), [{ tipo: 'Error', id: 1, colonna: 'STATIC C3 · CLUB MAT L1 · FIRST HALF', zona: 'ALFA_L1', atteso: 'ALFA', trovato: 'BETA_L2' }]);
 });

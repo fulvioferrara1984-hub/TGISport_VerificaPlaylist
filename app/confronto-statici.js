@@ -9,7 +9,8 @@
   // in Node il file app/<nome>.js, nel browser PC.<nomeInCamelCase> (es. 'confronto-virtual' → PC.confrontoVirtual)
   const dip = (nome) => (typeof module === 'object' && module.exports ? require('./' + nome + '.js')
     : radice.PC[nome.replace(/-(\w)/g, (_, c) => c.toUpperCase())]);
-  const { k } = dip('nomi');
+  const nomi = dip('nomi');
+  const { k } = nomi;
   const { ruoloZona, MAT_ZONA } = dip('zone');
   const { NOME_REG, confronta } = dip('confronto-virtual');
 
@@ -33,6 +34,30 @@
     return out;
   }
 
+  // Lato e numero di un tappeto dal nome della zona (Mats_L1, Mats L1, ALFA_L4 → { lato: 'L', numero: 4 }); null se non ci sono.
+  function posizioneTappeto(nome) {
+    const m = /[_ ]([A-Z]*)(\d+)$/.exec(String(nome).toUpperCase());
+    return m ? { lato: m[1], numero: Number(m[2]) } : null;
+  }
+
+  // Tappeti di un lato confrontati per brand, non per numero (l'Excel e il pacchetto possono numerarli da capi opposti).
+  // Ogni zona prende la riga libera col suo brand (a parità quella col suo numero), prima le zone il cui nome dice quello stesso
+  // brand (ALFA_R4 che mostra ALFA: se un'altra zona mostra ALFA per sbaglio, l'errore va su quella); le zone rimaste prendono
+  // le righe rimaste (prima quella col loro numero), così un errore dice un brand atteso preciso.
+  // zone: [{ zona, numero, art|null }] in ordine, righe: [{ numero, voce }]; uguale(voce, art).
+  // → Map zona → voce, oppure null se per quella zona non resta nessuna riga.
+  function abbinaTappeti(zone, righe, uguale) {
+    const libere = new Set(righe);
+    const out = new Map();
+    const perNumero = (n) => [...libere].sort((x, y) => (y.numero === n) - (x.numero === n) || x.numero - y.numero);
+    const prendi = (z, r) => { if (r) libere.delete(r); out.set(z.zona, r ? r.voce : null); };
+    const diNome = (z, x) => uguale(x.voce, { ad: z.zona, advertiser: null, file: '' });
+    zone.forEach((z) => { const r = z.art && perNumero(z.numero).find((x) => uguale(x.voce, z.art) && diNome(z, x)); if (r) prendi(z, r); });
+    zone.forEach((z) => { const r = !out.has(z.zona) && z.art && perNumero(z.numero).find((x) => uguale(x.voce, z.art)); if (r) prendi(z, r); });
+    zone.forEach((z) => { if (!out.has(z.zona)) prendi(z, perNumero(z.numero)[0]); });
+    return out;
+  }
+
   // tipo: 'PRE' | 'MATCH' | 'MATCH1' | 'MATCH2' | 'HL'; sponsor: { etichetta, DOM, FE, altri } (zone a regola fissa, dalle regole cifrate).
   function controllaStatici(c, stream, segmento, tipo, attesi, sponsor) {
     const regioni = stream.regioni;
@@ -50,6 +75,17 @@
     };
     const sconosciute = new Set(); // zone CLUB che non sono CLUB_LSX/USX/UDX/LDX e tappeti senza riga nell'Excel: un solo avviso per segmento
     const tappeti = attesi.MATS || new Map();
+    // righe CLUB MAT di questo tempo e zone tappeto del pacchetto, per lato
+    const righeTappeto = [];
+    tappeti.forEach((voce, chiave) => {
+      const m = /^MATS_([A-Z]*)(\d+)@(.+)$/.exec(chiave);
+      if (m && m[3] === tipo) righeTappeto.push({ lato: m[1], numero: Number(m[2]), voce });
+    });
+    const zoneTappeto = [...c.zone.values()].filter((zn) => ruoloZona(zn, c.angoliStatici, c.prefissoSponsor) === 'MATS')
+      .map((zn) => ({ zona: zn, ...(posizioneTappeto(zn) || { lato: null, numero: 0 }) })).sort((x, y) => x.numero - y.numero);
+    const uguale = (voce, a) => ['ok', 'variante'].includes(nomi.confronta(voce.valore, a, c.ctxNomi));
+    const mostrate = new Set(); // righe CLUB MAT abbinate a una zona in almeno uno slot controllato
+    let tappetiControllati = false;
     segmento.intervalli.forEach((iv, i) => {
       const perZona = new Map();
       iv.mappe.forEach((a, z) => perZona.set(c.zone.get(z), a));
@@ -58,6 +94,20 @@
       // foglio unico: un intervallo senza nessuna zona in onda (l'ultimo di ogni tempo) non ha statici da vedere; i LED dentro le righe
       // dell'Excel restano controllati dalla colonna dei brand
       const vuoto = c.feedUnico && partita && iv.mappe.size === 0;
+      const conTappeti = !(tipo === 'PRE' || leadIn || vuoto);
+      const abbinati = new Map();
+      if (conTappeti) {
+        tappetiControllati = true;
+        for (const lato of new Set(zoneTappeto.map((z) => z.lato))) {
+          const righe = righeTappeto.filter((r) => r.lato === lato);
+          if (!righe.length) continue;
+          const zone = zoneTappeto.filter((z) => z.lato === lato).map((z) => {
+            const a = perZona.get(z.zona);
+            return { ...z, art: a && a.ad !== 'Blank_Generic' ? a : null };
+          });
+          abbinaTappeti(zone, righe, uguale).forEach((voce, zn) => { abbinati.set(zn, voce); if (voce) mostrate.add(voce); });
+        }
+      }
       for (const zn of c.zone.values()) {
         const ruolo = ruoloZona(zn, c.angoliStatici, c.prefissoSponsor);
         const a = perZona.get(zn);
@@ -76,8 +126,8 @@
         } else if (['SPONSOR', 'CLUB', 'ADD', 'LC', 'CB', 'MATS'].includes(ruolo)) {
           if (ruolo === 'CB' && !attesi.CB.valore) continue; // senza la nota nell'Excel il centreboard non si controlla
           if (vuoto) continue;
-          const tappeto = ruolo === 'MATS' && !(tipo === 'PRE' || leadIn) ? tappeti.get(`MATS_${zn.toUpperCase().replace(/^MATS?[_ ]/, '')}@${tipo}`) : null;
-          if (ruolo === 'MATS' && !(tipo === 'PRE' || leadIn) && !tappeto) {
+          const tappeto = ruolo === 'MATS' && conTappeti ? abbinati.get(zn) : null;
+          if (ruolo === 'MATS' && conTappeti && !tappeto) {
             if (!sconosciute.has(zn)) { sconosciute.add(zn); nota('Warning', '-', '-', zn, 'CLUB MAT in the Excel', 'not checked'); }
             continue;
           }
@@ -110,6 +160,11 @@
         }
       }
     });
+    // una riga CLUB MAT di questo tempo che nessuna zona del pacchetto mostra: il tappeto manca
+    c.cella = null;
+    if (tappetiControllati) {
+      righeTappeto.filter((r) => !mostrate.has(r.voce) && r.voce.valore).forEach((r) => nota('Error', '-', etichetta(r.voce), '-', String(r.voce.valore), 'no mat zone'));
+    }
   }
 
   return { NOME: 'confrontoStatici', attesiStatici, controllaStatici };

@@ -10,7 +10,7 @@
   const POS = new Set(['GC1', 'GC', '1', '2', 'GL1', 'GL2', 'GL', 'TL1', 'TL2', 'TL', 'J', 'D', 'JUMBO', 'CORNER', 'A', 'B', 'C', 'AB', 'BC',
     'LC', 'UC', 'SX', 'DX', 'GLSX', 'GLDX', 'GLSX2', 'GLDX2', 'TLA', 'SOLO', 'SOLO1FILA', 'GL2TL2', 'CC', 'ADD',
     'LSX', 'USX', 'UDX', 'LDX', 'TLB', 'TLBC', 'LCUC', 'TL2A', 'TL2BC', 'TL2AB', '1FILA', '2FILA', 'CX', 'CX2', 'TLCX', 'GLSX1', 'GLDX1',
-    'RSX', 'RDX', 'SEC', '10', '15', '30', 'LED', 'CENTREBOARD', 'CENTERBOARD', 'LEFT', 'RIGHT', 'MATS', 'L1', 'R1']);
+    'RSX', 'RDX', 'SEC', '10', '15', '30', 'LED', 'CENTREBOARD', 'CENTERBOARD', 'LEFT', 'RIGHT', 'MATS', 'L1', 'L2', 'L3', 'L4', 'R1', 'R2', 'R3', 'R4']);
 
   // Maiuscole, con le lettere accentate e nordiche come quelle semplici (Ö → O, Ø → O, Æ → AE).
   const semplice = (testo) => String(testo).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/Ø/g, 'O').replace(/Æ/g, 'AE');

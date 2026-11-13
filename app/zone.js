@@ -16,6 +16,7 @@
     if (['CENTREBOARD', 'CENTERBOARD'].includes(u.replace(/[^A-Z]/g, ''))) return 'CB'; // anche all'americana
     if (u.startsWith('GRASS_')) return 'TEXTURE'; // texture del prato: non è pubblicità, non si controlla
     if (/^MATS?[_ ]/.test(u)) return 'MATS'; // tappeti del foglio unico (Mats_L1, Mats L1…): statici, col brand di ogni tempo da STATIC ASSETS
+    if (/_[LR]\d+$/.test(u)) return 'MATS'; // tappeti col nome dello sponsor e la posizione in fondo (ALFA_L1, BETA_R4)
     if (u === 'RSX' || u === 'RDX') return 'ADD';
     if (angoliStatici && /^LC_(SX|DX)_1$/.test(u)) return 'LC';
     if (prefissoSponsor && u.startsWith(String(prefissoSponsor).toUpperCase())) return 'SPONSOR';

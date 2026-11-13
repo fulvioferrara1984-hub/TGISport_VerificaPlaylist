@@ -20,6 +20,8 @@ test('chiaveBrand toglie le posizioni in coda', () => {
   assert.equal(chiaveBrand('ALFA_SOLO_GL_1').chiave, 'ALFA');
   assert.equal(chiaveBrand('MAGLIA_GL1_10_SEC').chiave, 'MAGLIA');
   assert.equal(chiaveBrand('OMEGA_CENTERBOARD').chiave, 'OMEGA');
+  assert.equal(chiaveBrand('OMEGA_V2_L4').chiave, 'OMEGAV2');
+  assert.equal(chiaveBrand('OMEGA_R3').chiave, 'OMEGA');
   assert.equal(chiaveBrand('BETA_RSX').chiave, 'BETA');
   assert.deepEqual(chiaveBrand('ZETA_999XYZ_GL1').parole, ['ZETA', '999XYZ']);
 });

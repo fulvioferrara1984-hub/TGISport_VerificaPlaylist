@@ -48,7 +48,7 @@
 
   // Un nome Excel che non corrisponde mai a niente nel pacchetto e punta sempre allo stesso brand AIR (che a sua volta non
   // corrisponde a nessun altro nome) è un probabile alias da confermare; se il brand trovato è un altro nome dell'Excel è uno scambio.
-  const VUOTI = ['Blank', 'nothing', 'Circle_Empty']; // "nessun brand": un errore con questi valori non è mai un alias
+  const VUOTI = ['Blank', 'nothing', 'Circle_Empty', 'no mat zone']; // "nessun brand": un errore con questi valori non è mai un alias
 
   function aliasProbabili(esiti, giusti, nomiExcel, ctxNomi) {
     const chiaveTrovato = (t) => nomi.chiaveBrand(String(t).replace(/ \(.*\)$/, '')).chiave;

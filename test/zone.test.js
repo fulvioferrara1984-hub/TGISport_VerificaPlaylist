@@ -95,3 +95,8 @@ test('tappeti col nome staccato (Mats L1, MATS R1): asset statici come Mats_L1',
 test('centreboard scritto all’americana (CENTERBOARD, Centerboard): stessa zona CB', () => {
   for (const z of ['CENTERBOARD', 'Centerboard', 'CENTREBOARD']) assert.equal(ruoloZona(z, false), 'CB', z);
 });
+
+test('tappeti col nome dello sponsor e la posizione in fondo (ALFA_L1, A&B_R4): asset statici', () => {
+  for (const z of ['ALFA_L1', 'BETA_GAMMA_L2', 'A&B_R4', 'OMEGA_R3']) assert.equal(ruoloZona(z, false), 'MATS', z);
+  for (const z of ['GL_SX_1', 'LC_SX_1', 'TL_2', 'FULL PERIMETER_1', 'UC_2_DX']) assert.notEqual(ruoloZona(z, false), 'MATS', z);
+});

@@ -389,3 +389,10 @@ test('foglio unico con LOOP senza ID e zona CENTERBOARD senza nota CB: il giro d
   assert.deepEqual(r.esiti, []);
   assert.equal(r.animazioni.filter((v) => v.zone.some((z) => z.zona === 'CENTERBOARD')).length, 0);
 });
+
+test('foglio unico: un tappeto dell’Excel senza zona nel pacchetto resta Error, non diventa un alias', () => {
+  const { excel, air } = modelloTappeti();
+  excel.statici.set('MATS_R1@MATCH1|UNICO', { valore: 'OMEGA', cella: 'C4', etichetta: 'CLUB MAT R1 · FIRST HALF' });
+  const mancanti = verifica(excel, air, REGOLE).esiti.filter((e) => e.trovato === 'no mat zone');
+  assert.deepEqual(mancanti.map((e) => [e.tipo, e.segmento, e.colonna, e.atteso]), [['Error', 'First Half', 'STATIC C4 · CLUB MAT R1 · FIRST HALF', 'OMEGA']]);
+});

@@ -148,3 +148,8 @@ test('nomi di ad e advertiser con entità (A&amp;B): decodificati come il venue'
   const iv = parseSequenza(hdmSequenza([{ inizio: 0, durata: 30000, mappe: [['12', [0]]] }], { 12: ['A&amp;B_FOOD_LEFT_RIGHT', 'A&amp;B_FOOD_1', '../advertisements/7_ab_food_1.mp4'] }));
   assert.deepEqual(iv[0].mappe.get(0), { ad: 'A&B_FOOD_LEFT_RIGHT', advertiser: 'A&B_FOOD_1', file: '../advertisements/7_ab_food_1.mp4' });
 });
+
+test('nomi di zona con entità (A&amp;B_L1): decodificati', () => {
+  const ev = parseEvento(hdmEvento({ zone: ['LED Left', 'A&amp;B_L1'] }));
+  assert.equal(ev.zone.get(1), 'A&B_L1');
+});

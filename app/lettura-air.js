@@ -64,7 +64,7 @@
     const data = /^\s*date = (.*)$/m.exec(testo);
     const venue = /venue\s*\{[\s\S]*?name = (.*?)\n/.exec(testo);
     const zone = new Map();
-    for (const m of testo.matchAll(/zone = (\d+)\s*\{\s*#id = \d+\s*name = (.*)/g)) zone.set(Number(m[1]), m[2].trim());
+    for (const m of testo.matchAll(/zone = (\d+)\s*\{\s*#id = \d+\s*name = (.*)/g)) zone.set(Number(m[1]), decodificaEntita(m[2].trim()));
     const stream = [];
     for (const m of testo.matchAll(/stream\s*\{\s*(?:#id = \d+\s*)?name = (.*?)\n[\s\S]*?sequences\s*\{([\s\S]*?)\n {6}\}/g)) {
       const segmenti = [...m[2].matchAll(/name = (.*?)\n\s*file = (.*)/g)].map((s) => ({ nome: s[1].trim(), file: s[2].trim() }));
