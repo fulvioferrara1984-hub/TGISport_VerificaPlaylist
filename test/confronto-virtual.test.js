@@ -187,6 +187,23 @@ test('foglio unico: recupero che alterna le ultime due righe compilate, anche ol
     { tipo: 'Recovery', id, colonna: 'E · VIRTUAL FEED – First row', zona: '-', atteso: `repeat of ID ${n}`, trovato })));
 });
 
+test('foglio unico: il recupero continua il giro con cui finisce l’Excel, anche più lungo di due righe', () => {
+  const c = provaUnico({ righe: ['OMEGA', 'ALFA', 'BETA', 'GAMMA', 'ALFA', 'BETA', 'GAMMA'], slot: ['OMEGA', 'ALFA', 'BETA', 'GAMMA', 'ALFA', 'BETA', 'GAMMA', 'ALFA', 'BETA', 'GAMMA', 'ALFA'] });
+  assert.deepEqual(breve(c.esiti), [['slot 8', 5, 'ALFA'], ['slot 9', 6, 'BETA'], ['slot 10', 7, 'GAMMA'], ['slot 11', 5, 'ALFA']].map(([id, n, trovato]) => (
+    { tipo: 'Recovery', id, colonna: 'E · VIRTUAL FEED – First row', zona: '-', atteso: `repeat of ID ${n}`, trovato })));
+});
+
+test('foglio unico: nel giro del recupero uno slot fuori turno è Error, con il brand del suo turno', () => {
+  const c = provaUnico({ righe: ['OMEGA', 'ALFA', 'BETA', 'GAMMA', 'ALFA', 'BETA', 'GAMMA'], slot: ['OMEGA', 'ALFA', 'BETA', 'GAMMA', 'ALFA', 'BETA', 'GAMMA', 'ALFA', 'GAMMA'] });
+  assert.deepEqual(c.esiti.map((e) => [e.tipo, e.id, e.colonna, e.zona, e.atteso, e.trovato].join('|')), ['Recovery|slot 8|E · VIRTUAL FEED – First row|-|repeat of ID 5|ALFA',
+    ...['LEFT LED', 'RIGHT LED'].map((zona) => `Error|slot 9|E · VIRTUAL FEED – First row · repeat of ID 6|${zona}|BETA|GAMMA_LED`)]);
+});
+
+test('foglio unico: se le ultime righe sono uguali il recupero ripete l’ultima', () => {
+  const c = provaUnico({ righe: ['ALFA', 'BETA', 'BETA'], slot: ['ALFA', 'BETA', 'BETA', 'BETA', 'BETA'] });
+  assert.deepEqual(c.esiti.map((e) => [e.tipo, e.id, e.atteso].join('|')), ['Recovery|slot 4|repeat of ID 3', 'Recovery|slot 5|repeat of ID 3']);
+});
+
 test('foglio unico: nel recupero un brand estraneo o fuori posto è Error, con il brand che il recupero doveva ripetere', () => {
   const altro = provaUnico({ righe: ['ALFA', 'BETA', null], slot: ['ALFA', 'BETA', 'OMEGA'] });
   assert.deepEqual([...new Set(altro.esiti.map((e) => [e.tipo, e.id, e.colonna, e.atteso, e.trovato].join('|')))], ['Error|3|E · VIRTUAL FEED – First row · repeat of ID 1|ALFA|OMEGA_LED']);

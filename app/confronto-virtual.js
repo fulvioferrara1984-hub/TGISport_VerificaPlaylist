@@ -41,6 +41,16 @@
     return righe.length > 1 && [...chiavi].every((x) => uguale(prima.valori.get(x), ultima.valori.get(x))) ? 1 : 0;
   }
 
+  // Playlist col recupero (foglio unico): lunghezza del giro più corto con cui finiscono le righe (le ultime p uguali alle
+  // p prima), o null se la coda non si ripete. Gli slot dopo l'ultima riga compilata continuano quel giro.
+  function periodoCoda(righe) {
+    const chiave = (r) => [...r.valori].map(([x, v]) => [x, nomi.k(nomi.senzaCodici(v || ''))]).filter(([, v]) => v).sort().join('|');
+    const ch = righe.map(chiave);
+    const n = ch.length;
+    for (let p = 1; 2 * p <= n; p++) if (ch.slice(n - p).every((x, i) => x === ch[n - 2 * p + i])) return p;
+    return null;
+  }
+
   const esito = (tipo, feed, segmento, id, colonna, zona, atteso, trovato) => ({ tipo, feed, segmento, id, colonna, zona, atteso, trovato });
   const secondi = (ms) => `${Number((ms / 1000).toPrecision(6))} s`;
 
@@ -67,7 +77,9 @@
     const piene = righe.map((r, i) => (piena(r) ? i + 1 : 0)).filter(Boolean);
     const ultima = piene.length ? piene[piene.length - 1] : null;
     const nZip = iv.length - base;
-    const ciclo = tabella.cicloRecovery || 1; // quante righe, in fondo a quelle compilate, ripete il recupero
+    const foglioUnico = (tabella.cicloRecovery || 1) > 1; // recupero in alternanza (foglio unico), non la sola ultima riga
+    // quante righe, in fondo a quelle compilate, ripete il recupero: il giro con cui finisce l'Excel, se c'è
+    const ciclo = foglioUnico ? (ultima && periodoCoda(righe.slice(0, ultima))) || tabella.cicloRecovery : 1;
     const daCapo = tabella.giro && righe.length ? inizioGiro(righe) : null;
     for (let pos = 1; pos <= Math.max(righe.length, nZip); pos++) {
       c.cella = null;
@@ -77,7 +89,7 @@
       const giroDi = !riga && daCapo !== null && idx < iv.length ? righe[daCapo + ((pos - righe.length - 1) % (righe.length - daCapo))] : null;
       if (giroDi) riga = { ...giroDi, id: `slot ${pos}` };
       // playlist col recupero: uno slot oltre l'ultima riga dell'Excel si controlla come una riga vuota
-      if (!riga && ciclo > 1 && idx < iv.length) riga = { id: `slot ${pos}`, riga: null, durataMs: iv[idx].durata, durataTesto: '', valori: new Map() };
+      if (!riga && foglioUnico && idx < iv.length) riga = { id: `slot ${pos}`, riga: null, durataMs: iv[idx].durata, durataTesto: '', valori: new Map() };
       const id = riga ? riga.id : `slot ${pos}`;
       if (idx >= iv.length || !riga) {
         const pienaX = riga && piena(riga);
@@ -128,7 +140,7 @@
           }
           // foglio unico: un recupero che non ripete la riga del suo turno si confronta con quella, così l'errore dice il brand
           // atteso (e un alias si riconosce); nella playlist classica resta il confronto con la riga vuota
-          if (eRec && ciclo > 1) { e = eRec; etichetta = `${etichetta} · repeat of ID ${ultimaRiga.id}`; }
+          if (eRec && foglioUnico) { e = eRec; etichetta = `${etichetta} · repeat of ID ${ultimaRiga.id}`; }
         }
         // con un brand nell'Excel ogni zona usata di questa fila deve mostrare un artwork, non solo alcune
         if (e && String(e).trim()) vista(idx, id, fila, etichetta, e, '', arts);
@@ -150,5 +162,5 @@
     if (tipo === 'HL' && iv.length !== righe.length) nota('Warning', '-', '-', '-', `${righe.length} slots (Excel)`, `${iv.length} slots (AIR)`);
   }
 
-  return { NOME: 'confrontoVirtual', NOME_REG, lettera, confronta, inizioGiro, controllaVirtual };
+  return { NOME: 'confrontoVirtual', NOME_REG, lettera, confronta, inizioGiro, periodoCoda, controllaVirtual };
 });
