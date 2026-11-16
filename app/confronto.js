@@ -12,7 +12,7 @@
   const nomi = dip('nomi');
   const { NOME_REG, controllaVirtual } = dip('confronto-virtual');
   const { attesiStatici, controllaStatici } = dip('confronto-statici');
-  const { ruoloZona, fileDelleZone, segnaposto, formatiDelleZone, fattoPerAltraZona } = dip('zone');
+  const { ruoloZona, fileDelleZone, segnaposto, formatiDelleZone, fattoPerAltraZona, latoZona, latoArtwork } = dip('zone');
 
   const NOMI_SEGMENTO = { PRE: 'Pre Match - Post Match', MATCH: '1st - 2nd Half', MATCH1: '1st Half', MATCH2: '2nd Half', HL: 'Highlights' };
 
@@ -54,7 +54,7 @@
     const chiaveTrovato = (t) => nomi.chiaveBrand(String(t).replace(/ \(.*\)$/, '')).chiave;
     const giustiE = new Set([...giusti].map((g) => g.split('|')[0]));
     const giustiZ = new Set([...giusti].map((g) => g.split('|')[1]));
-    const candidato = (e) => e.tipo === 'Error' && (String(e.colonna).includes('row') || String(e.colonna).startsWith('STATIC'))
+    const candidato = (e) => e.tipo === 'Error' && (String(e.colonna).includes('row') || String(e.colonna).startsWith('STATIC') || String(e.colonna).includes(' · MATS '))
       && !VUOTI.includes(e.atteso) && !VUOTI.includes(e.trovato) && !String(e.trovato).includes('-row file');
     const coppie = new Map();
     esiti.filter(candidato).forEach((e) => {
@@ -154,10 +154,14 @@
             if (video && !staNelloSlot(video, iv.durata / 1000)) nota('Error', id, '-', air.zone.get(z), `video fitting a ${secondi(iv.durata / 1000)} slot`, `${a.ad} · ${secondi(video)}`);
             const formato = air.formatiMedia && !segnaposto(a) && air.formatiMedia.get(file);
             if (formato && fattoPerAltraZona(formato, z, abituali)) nota('Error', id, '-', air.zone.get(z), `artwork sized for ${air.zone.get(z)} (${pixel(abituali.get(z))})`, `${a.ad} · ${pixel(formato)}`);
+            // zona di un lato (LEFT LED) con l'artwork fatto per l'altro (ALFA_RIGHT): sbagliato anche se il brand è giusto
+            const lato = latoZona(air.zone.get(z));
+            const latoArt = lato && latoArtwork(a.ad);
+            if (latoArt && latoArt !== lato) nota('Error', id, '-', air.zone.get(z), `artwork for the ${lato === 'L' ? 'left' : 'right'} side`, a.ad);
           });
         });
         if (tipo !== 'PRE') controllaVirtual(c, stream, seg, tipo, tipo === 'HL' ? excel.hl : excel.partite[tipo]);
-        controllaStatici(c, stream, seg, tipo, attesi, regole.zoneSponsor);
+        controllaStatici(c, stream, seg, tipo, attesi, regole.zoneSponsor, tipo.startsWith('MATCH') ? excel.partite[tipo] : null);
       }
     }
     esiti = aliasProbabili(esiti, c.giusti, nomiExcel, ctxNomi);

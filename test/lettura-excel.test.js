@@ -210,6 +210,27 @@ test('foglio unico: sotto la riga LOOP un ID non numerico non dà avvisi', () =>
   assert.deepEqual(x.avvisi.map((a) => a.id), ['1a']);
 });
 
+test('foglio unico: le colonne dei tappeti (L1-R2, L2-R1) danno il brand di ogni slot, anche sotto la riga LOOP', () => {
+  const x = leggiExcel(cartellaDueTempi({ testate: ['VIRTUAL FEED', 'L1-R2', 'L2-R1'],
+    righe1: [[1, 30, 'Alfa', 'Kappa', 'Zeta'], [2, 30, 'LOOP', 'Kappa', 'Zeta'], [3, 30, null, 'Omega', 'Zeta']],
+    righe2: [[1, 30, 'Beta', 'Omega', null]] }), XLSX);
+  const [a, b] = [x.partite.MATCH1, x.partite.MATCH2];
+  assert.deepEqual(a.righe.map((r) => r.id), [1]);
+  assert.deepEqual([...a.colonne], [['UNICO|1', 3]]);
+  assert.deepEqual(a.tappeti.posizioni, ['L1', 'R2', 'L2', 'R1']);
+  const vedi = (t) => t.righe.map((r) => [r.id, ...[...r.valori].map(([p, v]) => `${p}=${v.valore} ${v.cella} ${v.etichetta}`)]);
+  assert.deepEqual(vedi(a.tappeti), [1, 2, 3].map((id) => {
+    const [mat, riga] = [id === 3 ? 'Omega' : 'Kappa', 13 + id];
+    return [id, `L1=${mat} E${riga} L1-R2`, `R2=${mat} E${riga} L1-R2`, `L2=Zeta F${riga} L2-R1`, `R1=Zeta F${riga} L2-R1`];
+  }));
+  assert.deepEqual(vedi(b.tappeti), [[1, 'L1=Omega M14 L1-R2', 'R2=Omega M14 L1-R2', 'L2=null N14 L2-R1', 'R1=null N14 L2-R1']]);
+});
+
+test('foglio unico senza colonne dei tappeti: niente tappeti slot per slot', () => {
+  const x = leggiExcel(cartellaDueTempi({ testate: NAZIONALE, righe1: [[1, 30, 'Alfa', 'Kappa']], righe2: [[1, 30, 'Beta', 'Kappa']] }), XLSX);
+  assert.equal(x.partite.MATCH1.tappeti, undefined);
+});
+
 test('foglio unico: la riga LOOP senza ID chiude comunque la playlist', () => {
   const x = leggiExcel(cartellaDueTempi({ testate: ['AWAY NATIONAL FEED PITCH VBR'],
     righe1: [[1, 30, 'Alfa'], [2, 30, 'Beta'], [null, null, 'Loop'], [93, 30]], righe2: [[1, 30, 'Gamma'], [null, null, 'Loop']] }), XLSX);

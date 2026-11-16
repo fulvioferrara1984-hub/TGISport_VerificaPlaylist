@@ -7,11 +7,11 @@ const { attesiStatici, controllaStatici } = require('../app/confronto-statici.js
 const SPONSOR = { prefisso: 'SPZ_', etichetta: 'SPZ zones', DOM: 'SPZVITA', FE: null, altri: 'OMEGABET' };
 const st = (valore, cella, etichetta) => ({ valore, cella, etichetta });
 
-function prova({ zone, regioni = ['EU'], tipo = 'MATCH', slot, attesi = {}, angoliStatici = false, feedUnico = false }) {
+function prova({ zone, regioni = ['EU'], tipo = 'MATCH', slot, attesi = {}, angoliStatici = false, feedUnico = false, tabella = null }) {
   const c = contesto({ zone, angoliStatici, prefissoSponsor: SPONSOR.prefisso });
   c.feedUnico = feedUnico;
   const nomeSeg = { PRE: 'Pre Match - Post Match', HL: 'Highlights' }[tipo] || '1st Half - 2nd Half';
-  controllaStatici(c, stream('Feed', regioni), segmento(nomeSeg, slot), tipo, attesi, SPONSOR);
+  controllaStatici(c, stream('Feed', regioni), segmento(nomeSeg, slot), tipo, attesi, SPONSOR, tabella);
   return c;
 }
 
@@ -241,4 +241,39 @@ test('tappeti per lato: col nome dello sponsor, l’errore va sulla zona che mos
   // ALFA_L1 mostra il file di BETA, che è già nella sua zona BETA_L2: sbagliata è ALFA_L1
   const c = tappetiLato(['ALFA_L1', 'BETA_L2'], [art('BETA_L2'), art('BETA_L2')]);
   assert.deepEqual(breve(c.esiti), [{ tipo: 'Error', id: 1, colonna: 'STATIC C3 · CLUB MAT L1 · FIRST HALF', zona: 'ALFA_L1', atteso: 'ALFA', trovato: 'BETA_L2' }]);
+});
+
+// Tappeti slot per slot dalle colonne della playlist (L1-R2 / L2-R1): un brand per riga, L1 e R2 insieme, L2 e R1 insieme
+const CARPET = ['Carpet L1', 'Carpet L2', 'Carpet R2', 'Carpet R1'];
+const colonneTappeti = (righe) => ({ posizioni: ['L1', 'R2', 'L2', 'R1'], righe: righe.map(([a, b], i) => ({ id: i + 1, valori: new Map([
+  ['L1', st(a, `E${14 + i}`, 'L1-R2')], ['R2', st(a, `E${14 + i}`, 'L1-R2')], ['L2', st(b, `F${14 + i}`, 'L2-R1')], ['R1', st(b, `F${14 + i}`, 'L2-R1')]]) })) });
+const provaCarpet = ({ righe, slot, attesi = {}, zone = CARPET }) => prova({ zone, tipo: 'MATCH1', attesi, tabella: { tappeti: colonneTappeti(righe) },
+  slot: [{ mappe: {} }].concat(slot.map(([a, b]) => ({ mappe: Object.fromEntries(zone.map((z, i) => [i, art(z.endsWith('L1') || z.endsWith('R2') ? `${a}_L1_R2` : `${b}_L2_R1`)])) }))) });
+
+test('tappeti dalla playlist: ogni slot col brand della sua riga, nessun esito; nel visual check tra gli statici', () => {
+  const c = provaCarpet({ righe: [['ALFA', 'ZETA'], ['ALFA', 'ZETA'], ['BETA', 'ZETA']], slot: [['ALFA', 'ZETA'], ['ALFA', 'ZETA'], ['BETA', 'ZETA']] });
+  assert.deepEqual(c.esiti, []);
+  assert.deepEqual([...new Set(c.animazioni.map((v) => [v.gruppo, v.slot, v.zone[0].zona, v.atteso, v.colonna].join('|')))].filter((x) => x.includes('|3|')), [
+    'Statics|3|Carpet L1|BETA|E16 · MATS L1-R2', 'Statics|3|Carpet L2|ZETA|F16 · MATS L2-R1', 'Statics|3|Carpet R2|BETA|E16 · MATS L1-R2', 'Statics|3|Carpet R1|ZETA|F16 · MATS L2-R1']);
+});
+
+test('tappeti dalla playlist: un brand diverso dalla sua riga è Error, con la cella della riga', () => {
+  const c = provaCarpet({ righe: [['ALFA', 'ZETA'], ['BETA', 'ZETA']], slot: [['ALFA', 'ZETA'], ['ALFA', 'ZETA']] });
+  assert.deepEqual(breve(c.esiti), ['Carpet L1', 'Carpet R2'].map((zona) => ({ tipo: 'Error', id: 2, colonna: 'E15 · MATS L1-R2', zona, atteso: 'BETA', trovato: 'ALFA_L1_R2' })));
+});
+
+test('tappeti dalla playlist: dopo l’ultima riga il tappeto resta sull’ultimo brand; un altro brand è Error', () => {
+  const c = provaCarpet({ righe: [['ALFA', 'ZETA'], ['BETA', 'ZETA']], slot: [['ALFA', 'ZETA'], ['BETA', 'ZETA'], ['BETA', 'ZETA'], ['ALFA', 'ZETA']] });
+  assert.deepEqual(breve(c.esiti), ['Carpet L1', 'Carpet R2'].map((zona) => ({ tipo: 'Error', id: 4, colonna: 'E15 · MATS L1-R2 · repeat of ID 2', zona, atteso: 'BETA', trovato: 'ALFA_L1_R2' })));
+});
+
+test('tappeti dalla playlist: le righe STATIC ASSETS delle stesse posizioni non contano (Other Brands), nessun avviso', () => {
+  const statici = new Map([['MATS_L1@MATCH1', st('Other Brands', 'C3', 'CLUB MAT L1 · FIRST HALF')], ['MATS_L2@MATCH1', st('OMEGA', 'C4', 'CLUB MAT L2 · FIRST HALF')]]);
+  const c = provaCarpet({ righe: [['ALFA', 'ZETA']], slot: [['ALFA', 'ZETA']], attesi: { MATS: statici } });
+  assert.deepEqual(c.esiti, []);
+});
+
+test('tappeti dalla playlist: una posizione senza zona nel pacchetto è Error no mat zone, una volta per segmento', () => {
+  const c = provaCarpet({ zone: ['Carpet L1', 'Carpet L2', 'Carpet R2'], righe: [['ALFA', 'ZETA'], ['ALFA', 'ZETA']], slot: [['ALFA', 'ZETA'], ['ALFA', 'ZETA']] });
+  assert.deepEqual(breve(c.esiti), [{ tipo: 'Error', id: '-', colonna: 'F14 · MATS L2-R1', zona: '-', atteso: 'ZETA', trovato: 'no mat zone' }]);
 });

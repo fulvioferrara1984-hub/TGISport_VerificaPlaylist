@@ -396,3 +396,39 @@ test('foglio unico: un tappeto dell’Excel senza zona nel pacchetto resta Error
   const mancanti = verifica(excel, air, REGOLE).esiti.filter((e) => e.trovato === 'no mat zone');
   assert.deepEqual(mancanti.map((e) => [e.tipo, e.segmento, e.colonna, e.atteso]), [['Error', 'First Half', 'STATIC C4 · CLUB MAT R1 · FIRST HALF', 'OMEGA']]);
 });
+
+// Foglio unico con le colonne dei tappeti (L1-R2, L2-R1) e la riga LOOP, zone Carpet e LED con un file per lato
+function modelloCarpet({ destro = (n) => `${n}_RIGHT`, l2 = () => 'ZETA' } = {}) {
+  const { XLSX } = require('./aiuto.js').librerie();
+  const { leggiExcel } = require('../app/lettura-excel.js');
+  const { cartellaDueTempi } = require('./fixture-excel.js');
+  const righe = [[1, 30, 'ALFA', 'KAPPA', 'ZETA'], [2, 30, 'BETA', 'KAPPA', 'ZETA'], [3, 30, 'LOOP', 'SIGMA', 'ZETA'], [4, 30, null, 'SIGMA', 'ZETA']];
+  const excel = leggiExcel(cartellaDueTempi({ testate: ['VIRTUAL FEED', 'L1-R2', 'L2-R1'], righe1: righe, righe2: righe,
+    statici: [['CLUB MAT L1', 'Other Brands', 'Other Brands'], ['CLUB MAT L2', 'ZETA', 'ZETA'], ['CLUB MAT R1', 'ZETA', 'ZETA'], ['CLUB MAT R2', 'Other Brands', 'Other Brands']] }), XLSX);
+  // 5 slot per tempo: LED in giro dalla prima riga dopo il LOOP; tappeti L1/R2 dalle righe, oltre l'Excel fermi sull'ultimo brand
+  const led = ['ALFA', 'BETA', 'ALFA', 'BETA', 'ALFA'];
+  const mat = ['KAPPA', 'KAPPA', 'SIGMA', 'SIGMA', 'SIGMA'];
+  const pieno = (n, i) => ({ durata: 30000, mappe: { 0: art(`${n}_LEFT`), 1: art(destro(n, i + 1)), 2: art(`${mat[i]}_L1_R2`), 3: art(`${l2(i + 1)}_L2_R1`), 4: art(`${mat[i]}_L1_R2`), 5: art(`${l2(i + 1)}_L2_R1`) } });
+  const tempo = () => [{ durata: 30000, mappe: { 0: BLANK, 1: BLANK } }].concat(led.map(pieno));
+  const air = { evento: { nome: 'Alfa vs Beta', data: '2026-11-17', venue: 'Stadio Prova' }, zone: new Map(['LEFT LED', 'RIGHT LED', 'Carpet L1', 'Carpet L2', 'Carpet R2', 'Carpet R1'].map((z, i) => [i, z])),
+    stream: [{ nome: 'Feed Alfa', regioni: new Set(), segmenti: [segmento('Pre Game', [{ durata: 30000, mappe: { 0: BLANK, 1: BLANK } }]), segmento('First Half', tempo()), segmento('Second Half', tempo())] }] };
+  return verifica(excel, air, REGOLE);
+}
+
+test('foglio unico con le colonne dei tappeti: zone Carpet slot per slot, anche dopo il LOOP e oltre l’Excel, nessun esito', () => {
+  const r = modelloCarpet();
+  assert.deepEqual(r.esiti, []);
+  assert.ok(r.animazioni.some((v) => v.slot === 5 && v.zone[0].zona === 'Carpet L1' && v.atteso === 'SIGMA'));
+});
+
+test('LED che mostra l’artwork dell’altro lato: Error anche se il brand è giusto', () => {
+  const r = modelloCarpet({ destro: (n, slot) => (slot === 2 ? `${n}_LEFT` : `${n}_RIGHT`) });
+  assert.deepEqual(r.esiti.map((e) => [e.tipo, e.segmento, e.id, e.colonna, e.zona, e.atteso, e.trovato]), ['First Half', 'Second Half'].map((s) => (
+    ['Error', s, 2, '-', 'RIGHT LED', 'artwork for the right side', 'BETA_LEFT'])));
+});
+
+test('foglio unico: un tappeto della playlist sempre con un altro nome è un alias da confermare', () => {
+  const r = modelloCarpet({ l2: () => 'OMEGA' });
+  assert.ok(r.esiti.length > 0);
+  assert.deepEqual([...new Set(r.esiti.map((e) => [e.tipo, e.atteso, e.trovato].join('|')))], ['Possible alias|ZETA|OMEGA_L2_R1']);
+});

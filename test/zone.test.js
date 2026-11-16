@@ -1,7 +1,7 @@
 // Ruolo delle zone e fila degli artwork (app/zone.js).
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { ruoloZona, filaArtwork, MAT_ZONA, formatiDelleZone, fattoPerAltraZona } = require('../app/zone.js');
+const { ruoloZona, filaArtwork, MAT_ZONA, formatiDelleZone, fattoPerAltraZona, latoZona, latoArtwork } = require('../app/zone.js');
 
 test('ruolo delle zone', () => {
   for (const [z, r] of [['CC', 'CC'], ['SPZ_LSX', 'SPONSOR'], ['CLUB_UDX', 'CLUB'], ['ADD_3', 'ADD'], ['RSX', 'ADD'], ['RDX', 'ADD'],
@@ -90,6 +90,15 @@ test('tappeti del foglio unico (Mats_L1, MATS_R1, MAT_L2): asset statici, non LE
 
 test('tappeti col nome staccato (Mats L1, MATS R1): asset statici come Mats_L1', () => {
   for (const z of ['Mats L1', 'MATS R1']) assert.equal(ruoloZona(z, false), 'MATS', z);
+});
+
+test('tappeti chiamati Carpet (Carpet L1, CARPET_R2): asset statici come Mats_L1', () => {
+  for (const z of ['Carpet L1', 'CARPET_R2', 'Carpets L2']) assert.equal(ruoloZona(z, false), 'MATS', z);
+});
+
+test('lato di una zona e di un artwork dal nome: LEFT/SX a sinistra, RIGHT/DX a destra, i due insieme nessuno', () => {
+  assert.deepEqual(['LEFT LED', 'LED Right', 'GL_SX_1', 'UC_2_DX', 'Carpet L1', 'CENTREBOARD'].map(latoZona), ['L', 'R', 'L', 'R', null, null]);
+  assert.deepEqual(['ALFA_LEFT', 'ALFA_RIGHT', 'ALFA_GL1_SX', 'ALFA_LEFT_RIGHT', 'ALFA_SX_DX', 'ALFA_L1_R2', 'LEFTY_ALFA'].map(latoArtwork), ['L', 'R', 'L', null, null, null, null]);
 });
 
 test('centreboard scritto all’americana (CENTERBOARD, Centerboard): stessa zona CB', () => {

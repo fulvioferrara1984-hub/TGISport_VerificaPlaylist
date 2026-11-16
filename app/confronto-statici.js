@@ -59,7 +59,20 @@
   }
 
   // tipo: 'PRE' | 'MATCH' | 'MATCH1' | 'MATCH2' | 'HL'; sponsor: { etichetta, DOM, FE, altri } (zone a regola fissa, dalle regole cifrate).
-  function controllaStatici(c, stream, segmento, tipo, attesi, sponsor) {
+  // Tappeto di uno slot dalle colonne della playlist (L1-R2…): il brand della riga dello slot; dopo l'ultima riga con un brand per
+  // quella posizione il tappeto resta su quel brand. { valore, colonna }, null se la posizione non ha mai un brand.
+  function tappetoDelloSlot(perSlot, pos, slot) {
+    const righe = perSlot.righe;
+    let ultima = -1;
+    righe.forEach((r, j) => { if ((r.valori.get(pos) || {}).valore) ultima = j; });
+    if (ultima < 0) return null;
+    const j = Math.min(slot - 1, ultima);
+    const v = righe[j].valori.get(pos);
+    return { valore: v.valore, colonna: `${v.cella} · MATS ${v.etichetta}${slot - 1 > ultima ? ` · repeat of ID ${righe[ultima].id}` : ''}` };
+  }
+
+  // tabella: la tabella dell'Excel di questo tempo (foglio unico), per i tappeti slot per slot dalle colonne della playlist
+  function controllaStatici(c, stream, segmento, tipo, attesi, sponsor, tabella = null) {
     const regioni = stream.regioni;
     const solo = (r) => regioni.size === 1 && regioni.has(r);
     const sponsorAtteso = solo('DOM') ? sponsor.DOM : solo('FE') ? sponsor.FE : sponsor.altri;
@@ -75,13 +88,18 @@
     };
     const sconosciute = new Set(); // zone CLUB che non sono CLUB_LSX/USX/UDX/LDX e tappeti senza riga nell'Excel: un solo avviso per segmento
     const tappeti = attesi.MATS || new Map();
+    // tappeti slot per slot dalla playlist: le loro posizioni non usano le righe CLUB MAT (es. "Other Brands")
+    const perSlot = tabella && tabella.tappeti;
+    const posizione = (zn) => { const p = posizioneTappeto(zn); return p ? p.lato + p.numero : null; };
+    const dallaPlaylist = (pos) => Boolean(perSlot && perSlot.posizioni.includes(pos));
+    const zoneMats = [...c.zone.values()].filter((zn) => ruoloZona(zn, c.angoliStatici, c.prefissoSponsor) === 'MATS');
     // righe CLUB MAT di questo tempo e zone tappeto del pacchetto, per lato
     const righeTappeto = [];
     tappeti.forEach((voce, chiave) => {
       const m = /^MATS_([A-Z]*)(\d+)@(.+)$/.exec(chiave);
-      if (m && m[3] === tipo) righeTappeto.push({ lato: m[1], numero: Number(m[2]), voce });
+      if (m && m[3] === tipo && !dallaPlaylist(m[1] + m[2])) righeTappeto.push({ lato: m[1], numero: Number(m[2]), voce });
     });
-    const zoneTappeto = [...c.zone.values()].filter((zn) => ruoloZona(zn, c.angoliStatici, c.prefissoSponsor) === 'MATS')
+    const zoneTappeto = zoneMats.filter((zn) => !dallaPlaylist(posizione(zn)))
       .map((zn) => ({ zona: zn, ...(posizioneTappeto(zn) || { lato: null, numero: 0 }) })).sort((x, y) => x.numero - y.numero);
     const uguale = (voce, a) => ['ok', 'variante'].includes(nomi.confronta(voce.valore, a, c.ctxNomi));
     const mostrate = new Set(); // righe CLUB MAT abbinate a una zona in almeno uno slot controllato
@@ -126,7 +144,8 @@
         } else if (['SPONSOR', 'CLUB', 'ADD', 'LC', 'CB', 'MATS'].includes(ruolo)) {
           if (ruolo === 'CB' && !attesi.CB.valore) continue; // senza la nota nell'Excel il centreboard non si controlla
           if (vuoto) continue;
-          const tappeto = ruolo === 'MATS' && conTappeti ? abbinati.get(zn) : null;
+          const daPlaylist = ruolo === 'MATS' && dallaPlaylist(posizione(zn));
+          const tappeto = ruolo === 'MATS' && conTappeti ? (daPlaylist ? tappetoDelloSlot(perSlot, posizione(zn), i) : abbinati.get(zn)) : null;
           if (ruolo === 'MATS' && conTappeti && !tappeto) {
             if (!sconosciute.has(zn)) { sconosciute.add(zn); nota('Warning', '-', '-', zn, 'CLUB MAT in the Excel', 'not checked'); }
             continue;
@@ -135,7 +154,7 @@
           let atteso; let col;
           if (tipo === 'PRE' || leadIn) { atteso = null; col = '-'; }
           else if (ruolo === 'SPONSOR') { atteso = sponsorAtteso; col = `Rule · ${sponsor.etichetta}`; }
-          else if (ruolo === 'MATS') { atteso = tappeto.valore; col = etichetta(tappeto); }
+          else if (ruolo === 'MATS') { atteso = tappeto.valore; col = daPlaylist ? tappeto.colonna : etichetta(tappeto); }
           else if (ruolo === 'ADD' && zn.toUpperCase().startsWith('ADD_') && solo('DOM')) { atteso = null; col = 'Rule · Domestic ADD zones'; }
           else if (ruolo === 'CLUB' && !MAT_ZONA[zn.toUpperCase()]) {
             if (!sconosciute.has(zn)) { sconosciute.add(zn); nota('Warning', '-', '-', zn, 'known CLUB zone', 'unknown zone'); }
@@ -164,6 +183,12 @@
     c.cella = null;
     if (tappetiControllati) {
       righeTappeto.filter((r) => !mostrate.has(r.voce) && r.voce.valore).forEach((r) => nota('Error', '-', etichetta(r.voce), '-', String(r.voce.valore), 'no mat zone'));
+      // una posizione delle colonne della playlist senza zona nel pacchetto: il tappeto manca (con la prima riga che ha un brand)
+      const conZona = new Set(zoneMats.map(posizione));
+      (perSlot ? perSlot.posizioni : []).filter((pos) => !conZona.has(pos)).forEach((pos) => {
+        const v = perSlot.righe.map((r) => r.valori.get(pos)).find((x) => x && x.valore);
+        if (v) nota('Error', '-', `${v.cella} · MATS ${v.etichetta}`, '-', String(v.valore), 'no mat zone');
+      });
     }
   }
 

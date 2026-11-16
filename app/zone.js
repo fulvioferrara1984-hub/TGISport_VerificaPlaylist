@@ -15,7 +15,7 @@
     if (u === 'CC') return 'CC';
     if (['CENTREBOARD', 'CENTERBOARD'].includes(u.replace(/[^A-Z]/g, ''))) return 'CB'; // anche all'americana
     if (u.startsWith('GRASS_')) return 'TEXTURE'; // texture del prato: non è pubblicità, non si controlla
-    if (/^MATS?[_ ]/.test(u)) return 'MATS'; // tappeti del foglio unico (Mats_L1, Mats L1…): statici, col brand di ogni tempo da STATIC ASSETS
+    if (/^(MATS?|CARPETS?)[_ ]/.test(u)) return 'MATS'; // tappeti del foglio unico (Mats_L1, Mats L1, Carpet L1…): statici, col brand da STATIC ASSETS o dalla playlist
     if (/_[LR]\d+$/.test(u)) return 'MATS'; // tappeti col nome dello sponsor e la posizione in fondo (ALFA_L1, BETA_R4)
     if (u === 'RSX' || u === 'RDX') return 'ADD';
     if (angoliStatici && /^LC_(SX|DX)_1$/.test(u)) return 'LC';
@@ -102,5 +102,19 @@
     return !vicini(f.altezza, propria.altezza, 1.25) || [...abituali.values()].some((g) => stessoFormato(f, g));
   }
 
-  return { NOME: 'zone', MAT_ZONA, ruoloZona, filaSuffisso, filaArtwork, fileDelleZone, segnaposto, formatiDelleZone, fattoPerAltraZona };
+  // Lato scritto nel nome: 'L' (LEFT, SX) o 'R' (RIGHT, DX), null se non c'è o ci sono tutti e due.
+  const LATI = { LEFT: 'L', SX: 'L', RIGHT: 'R', DX: 'R' };
+  const parole = (nome) => String(nome).toUpperCase().split(/[^A-Z]+/).filter(Boolean);
+  function latoZona(nome) {
+    const lati = new Set(parole(nome).map((p) => LATI[p]).filter(Boolean));
+    return lati.size === 1 ? [...lati][0] : null;
+  }
+  // Lato di un artwork dal suffisso del nome (ALFA_LEFT, ALFA_GL1_SX); ALFA_LEFT_RIGHT vale per i due lati: nessuno.
+  function latoArtwork(ad) {
+    const p = parole(ad);
+    const [prima, ultima] = [LATI[p[p.length - 2]], LATI[p[p.length - 1]]];
+    return p.length > 1 && ultima && (!prima || prima === ultima) ? ultima : null;
+  }
+
+  return { NOME: 'zone', MAT_ZONA, ruoloZona, filaSuffisso, filaArtwork, fileDelleZone, segnaposto, formatiDelleZone, fattoPerAltraZona, latoZona, latoArtwork };
 });

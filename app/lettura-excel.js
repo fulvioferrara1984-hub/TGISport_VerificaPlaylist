@@ -156,9 +156,28 @@
     const prima = (x) => rigaGiro === null || x.riga < rigaGiro;
     const righe = tutte.filter(prima);
     avvisi.push(...propri.filter(prima));
+    const tappeti = tappetiDellaPlaylist(foglio, XLSX, testa, inizio, fine, tutte);
     // cicloRecovery: senza LOOP, dopo l'ultima riga compilata il pacchetto ripete in alternanza le ultime due
     return { foglio: nome, colonne, soloPrimaFila: colSeconda < 0, colonnaId: letteraId, colonnaDurata: XLSX.utils.encode_col(colDurata), cicloRecovery: 2,
-      giro: rigaGiro !== null, righe };
+      giro: rigaGiro !== null, righe, ...(tappeti ? { tappeti } : {}) };
+  }
+
+  // Colonne dei tappeti slot per slot ("L1-R2", "L2-R1": le posizioni che mostrano lo stesso brand): per ogni riga con un ID, anche
+  // sotto la riga LOOP (i tappeti vanno avanti), il brand di ogni posizione. { posizioni, righe: [{ id, valori: Map(pos → voce) }] };
+  // null se il tempo non ha queste colonne.
+  function tappetiDellaPlaylist(foglio, XLSX, testa, inizio, fine, righe) {
+    const colonne = [];
+    for (let c = inizio + 1; c < fine; c++) {
+      const h = k(foglio.valore(testa, c));
+      if (/^(?:[LR]\d+)+$/.test(h)) colonne.push({ c, posizioni: h.match(/[LR]\d+/g), etichetta: String(foglio.valore(testa, c)).trim() });
+    }
+    if (!colonne.length) return null;
+    const voce = (r, x) => {
+      const v = vuoto(foglio.valore(r.riga - 1, x.c));
+      return { valore: v === null ? null : String(v), cella: XLSX.utils.encode_col(x.c) + r.riga, etichetta: x.etichetta };
+    };
+    return { posizioni: colonne.flatMap((x) => x.posizioni),
+      righe: righe.map((r) => ({ id: r.id, valori: new Map(colonne.flatMap((x) => x.posizioni.map((p) => [p, voce(r, x)]))) })) };
   }
 
   // Cella "CB: <brand>" in qualunque punto del foglio: il brand del centreboard per tutta la partita.
