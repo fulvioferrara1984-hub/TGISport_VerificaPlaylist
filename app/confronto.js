@@ -48,7 +48,7 @@
 
   // Un nome Excel che non corrisponde mai a niente nel pacchetto e punta sempre allo stesso brand AIR (che a sua volta non
   // corrisponde a nessun altro nome) è un probabile alias da confermare; se il brand trovato è un altro nome dell'Excel è uno scambio.
-  const VUOTI = ['Blank', 'nothing', 'Circle_Empty', 'no mat zone']; // "nessun brand": un errore con questi valori non è mai un alias
+  const VUOTI = ['Blank', 'nothing', 'Circle_Empty', 'no mat zone', 'missing']; // "nessun brand": un errore con questi valori non è mai un alias
 
   function aliasProbabili(esiti, giusti, nomiExcel, ctxNomi) {
     const chiaveTrovato = (t) => nomi.chiaveBrand(String(t).replace(/ \(.*\)$/, '')).chiave;
@@ -91,8 +91,19 @@
     const c = { zone: air.zone, angoliStatici, prefissoSponsor: regole.zoneSponsor && regole.zoneSponsor.prefisso, ctxNomi, giusti: new Set(), celle: { n: 0 }, cella: null,
       feedUnico: Boolean(excel.feedUnico) };
     // fila delle zone LED in uso, dal pacchetto intero: una zona dimenticata per tutto un segmento resta da controllare
+    // zone fissate dallo STATIC ASSET col numero (ZONE 6: … = la sesta zona del pacchetto, id 5): statiche, non LED
+    c.zoneExcel = new Map();
+    const senzaZona = new Map();
+    excel.statici.forEach((voce, chiave) => {
+      const m = /^ZONA_(\d+)@/.exec(chiave);
+      if (!m) return;
+      const n = Number(m[1]);
+      if (air.zone.has(n - 1)) c.zoneExcel.set(n - 1, n);
+      else if (!senzaZona.has(n)) senzaZona.set(n, voce);
+    });
+    senzaZona.forEach((voce, n) => esiti.push({ tipo: 'Error', feed: '-', segmento: 'Excel', id: '-', colonna: `STATIC ${voce.cella} · ${voce.etichetta}`, zona: '-', atteso: `package zone ${n}`, trovato: 'missing' }));
     c.filaZona = fileDelleZone(air.stream.flatMap((s) => s.segmenti), (z) => air.zone.get(z),
-      (z) => ruoloZona(air.zone.get(z), angoliStatici, c.prefissoSponsor).startsWith('LED'));
+      (z) => !c.zoneExcel.has(z) && ruoloZona(air.zone.get(z), angoliStatici, c.prefissoSponsor).startsWith('LED'));
     // ogni risultato prende il numero della cella in controllo (null fuori dalle celle): serve a contare le celle corrette
     c.nota = (e) => esiti.push(c.cella ? { ...e, cella: c.cella } : e);
     // gruppi di zone con il brand atteso, per il visual check: non cambiano gli esiti

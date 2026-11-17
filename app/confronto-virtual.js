@@ -68,7 +68,8 @@
           zone: arts.map(([zn, a]) => ({ zona: zn, file: String(a.file).split('/').pop() })) });
       }
     };
-    const led = (z) => ruoloZona(c.zone.get(z), c.angoliStatici, c.prefissoSponsor).startsWith('LED');
+    // LED: non le zone che lo STATIC ASSET fissa col loro numero (seconda fila, adnet…), che sono statiche
+    const led = (z) => !(c.zoneExcel && c.zoneExcel.has(z)) && ruoloZona(c.zone.get(z), c.angoliStatici, c.prefissoSponsor).startsWith('LED');
     // fila di ogni zona LED usata: dal pacchetto intero (c.filaZona, da verifica) o, da sola, da questo segmento
     const filaZona = c.filaZona || fileDelleZone([segmento], (z) => c.zone.get(z), led);
     c.cella = null; // risultati fuori dalle celle (righe senza slot, avvisi): senza numero di cella

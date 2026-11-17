@@ -7,8 +7,9 @@ const { attesiStatici, controllaStatici } = require('../app/confronto-statici.js
 const SPONSOR = { prefisso: 'SPZ_', etichetta: 'SPZ zones', DOM: 'SPZVITA', FE: null, altri: 'OMEGABET' };
 const st = (valore, cella, etichetta) => ({ valore, cella, etichetta });
 
-function prova({ zone, regioni = ['EU'], tipo = 'MATCH', slot, attesi = {}, angoliStatici = false, feedUnico = false, tabella = null }) {
+function prova({ zone, regioni = ['EU'], tipo = 'MATCH', slot, attesi = {}, angoliStatici = false, feedUnico = false, tabella = null, zoneExcel = null }) {
   const c = contesto({ zone, angoliStatici, prefissoSponsor: SPONSOR.prefisso });
+  if (zoneExcel) c.zoneExcel = zoneExcel;
   c.feedUnico = feedUnico;
   const nomeSeg = { PRE: 'Pre Match - Post Match', HL: 'Highlights' }[tipo] || '1st Half - 2nd Half';
   controllaStatici(c, stream('Feed', regioni), segmento(nomeSeg, slot), tipo, attesi, SPONSOR, tabella);
@@ -276,4 +277,24 @@ test('tappeti dalla playlist: le righe STATIC ASSETS delle stesse posizioni non 
 test('tappeti dalla playlist: una posizione senza zona nel pacchetto è Error no mat zone, una volta per segmento', () => {
   const c = provaCarpet({ zone: ['Carpet L1', 'Carpet L2', 'Carpet R2'], righe: [['ALFA', 'ZETA'], ['ALFA', 'ZETA']], slot: [['ALFA', 'ZETA'], ['ALFA', 'ZETA']] });
   assert.deepEqual(breve(c.esiti), [{ tipo: 'Error', id: '-', colonna: 'F14 · MATS L2-R1', zona: '-', atteso: 'ZETA', trovato: 'no mat zone' }]);
+});
+
+// Zone fissate dallo STATIC ASSET col numero (ZONE n: = la n-esima zona del pacchetto, id n-1): asset statici col brand di ogni tempo
+const ZONE = new Map([['ZONA_2@MATCH1', st('ALFA', 'C6', 'ZONE 2 · FIRST HALF')], ['ZONA_3@MATCH1', st('KAPPA SHOP', 'C10', 'ZONE 3 · FIRST HALF')]]);
+const provaZone = (slot, tipo = 'MATCH1') => prova({ zone: ['LEFT LED', '2nd Row 1', 'Left Goal Adnet'], tipo, attesi: { ZONE }, zoneExcel: new Map([[1, 2], [2, 3]]),
+  slot: [{ mappe: {} }].concat(slot.map(([a, b]) => ({ mappe: { 0: art('OMEGA_LED'), 1: art(a), 2: art(b) } }))) });
+
+test('zone dello STATIC ASSET (ZONE n): il brand del loro tempo in ogni slot; un altro brand è Error, col nome della riga', () => {
+  const c = provaZone([['ALFA_2ROW', 'KAPPA_ADDNET'], ['BETA_2ROW', 'KAPPA_ADDNET']]);
+  assert.deepEqual(breve(c.esiti), [
+    { tipo: 'Variant', id: 1, colonna: 'STATIC C10 · ZONE 3 · FIRST HALF', zona: 'Left Goal Adnet', atteso: 'KAPPA SHOP', trovato: 'KAPPA_ADDNET' },
+    { tipo: 'Error', id: 2, colonna: 'STATIC C6 · ZONE 2 · FIRST HALF', zona: '2nd Row 1', atteso: 'ALFA', trovato: 'BETA_2ROW' },
+    { tipo: 'Variant', id: 2, colonna: 'STATIC C10 · ZONE 3 · FIRST HALF', zona: 'Left Goal Adnet', atteso: 'KAPPA SHOP', trovato: 'KAPPA_ADDNET' }]);
+  assert.deepEqual([...new Set(c.animazioni.map((v) => [v.gruppo, v.zone[0].zona, v.atteso].join('|')))], ['Statics|2nd Row 1|ALFA', 'Statics|Left Goal Adnet|KAPPA SHOP']);
+});
+
+test('zone dello STATIC ASSET senza la riga di questo tempo: un avviso per segmento, non si controllano', () => {
+  const c = provaZone([['ALFA_2ROW', 'KAPPA_ADDNET'], ['BETA_2ROW', 'KAPPA_ADDNET']], 'MATCH2');
+  assert.deepEqual(breve(c.esiti), ['2nd Row 1', 'Left Goal Adnet'].map((zona, i) => (
+    { tipo: 'Warning', id: '-', colonna: '-', zona, atteso: `ZONE ${i + 2} in the Excel`, trovato: 'not checked' })));
 });

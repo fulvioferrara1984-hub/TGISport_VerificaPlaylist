@@ -31,6 +31,9 @@
     // tappeti del foglio unico: un brand per tempo, chiave 'MATS_<lato>@<tempo>'
     out.MATS = new Map([...statici].filter(([chiave]) => chiave.startsWith('MATS_') && chiave.endsWith(`|${ordinate[0]}`))
       .map(([chiave, v]) => [chiave.slice(0, chiave.lastIndexOf('|')), v]));
+    // zone fissate col numero (ZONE 6: … nello STATIC ASSET), chiave 'ZONA_<n>@<tempo>'
+    out.ZONE = new Map([...statici].filter(([chiave]) => chiave.startsWith('ZONA_') && chiave.endsWith(`|${ordinate[0]}`))
+      .map(([chiave, v]) => [chiave.slice(0, chiave.lastIndexOf('|')), v]));
     return out;
   }
 
@@ -126,8 +129,10 @@
           abbinaTappeti(zone, righe, uguale).forEach((voce, zn) => { abbinati.set(zn, voce); if (voce) mostrate.add(voce); });
         }
       }
-      for (const zn of c.zone.values()) {
-        const ruolo = ruoloZona(zn, c.angoliStatici, c.prefissoSponsor);
+      for (const [z, zn] of c.zone) {
+        // una zona fissata dallo STATIC ASSET col suo numero è statica, qualunque sia il suo nome
+        const numero = c.zoneExcel && c.zoneExcel.get(z);
+        const ruolo = numero ? 'ZONA' : ruoloZona(zn, c.angoliStatici, c.prefissoSponsor);
         const a = perZona.get(zn);
         if (ruolo === 'CC') {
           c.cella = ++c.celle.n;
@@ -141,7 +146,7 @@
             if (es === 'variante') nota('Variant', id, etichetta(voce), zn, String(atteso), a.ad);
             else if (es !== 'ok') nota(es === 'errore' ? 'Error' : 'Possible typo', id, etichetta(voce), zn, String(atteso || 'Circle_Empty'), a.ad);
           }
-        } else if (['SPONSOR', 'CLUB', 'ADD', 'LC', 'CB', 'MATS'].includes(ruolo)) {
+        } else if (['SPONSOR', 'CLUB', 'ADD', 'LC', 'CB', 'MATS', 'ZONA'].includes(ruolo)) {
           if (ruolo === 'CB' && !attesi.CB.valore) continue; // senza la nota nell'Excel il centreboard non si controlla
           if (vuoto) continue;
           const daPlaylist = ruolo === 'MATS' && dallaPlaylist(posizione(zn));
@@ -155,6 +160,15 @@
           if (tipo === 'PRE' || leadIn) { atteso = null; col = '-'; }
           else if (ruolo === 'SPONSOR') { atteso = sponsorAtteso; col = `Rule · ${sponsor.etichetta}`; }
           else if (ruolo === 'MATS') { atteso = tappeto.valore; col = daPlaylist ? tappeto.colonna : etichetta(tappeto); }
+          else if (ruolo === 'ZONA') {
+            const voce = (attesi.ZONE || new Map()).get(`ZONA_${numero}@${tipo}`);
+            if (!voce) {
+              c.cella = null;
+              if (!sconosciute.has(zn)) { sconosciute.add(zn); nota('Warning', '-', '-', zn, `ZONE ${numero} in the Excel`, 'not checked'); }
+              continue;
+            }
+            atteso = voce.valore; col = etichetta(voce);
+          }
           else if (ruolo === 'ADD' && zn.toUpperCase().startsWith('ADD_') && solo('DOM')) { atteso = null; col = 'Rule · Domestic ADD zones'; }
           else if (ruolo === 'CLUB' && !MAT_ZONA[zn.toUpperCase()]) {
             if (!sconosciute.has(zn)) { sconosciute.add(zn); nota('Warning', '-', '-', zn, 'known CLUB zone', 'unknown zone'); }

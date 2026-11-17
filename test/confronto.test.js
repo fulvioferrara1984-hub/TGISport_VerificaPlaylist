@@ -432,3 +432,38 @@ test('foglio unico: un tappeto della playlist sempre con un altro nome è un ali
   assert.ok(r.esiti.length > 0);
   assert.deepEqual([...new Set(r.esiti.map((e) => [e.tipo, e.atteso, e.trovato].join('|')))], ['Possible alias|ZETA|OMEGA_L2_R1']);
 });
+
+// Foglio unico con lo STATIC ASSET a più sezioni: seconda fila e adnet fissate col numero della zona (ZONE n), tappeto "/" = nessuno
+function modelloZone({ seconda = ['ALFA', 'BETA'], extra = [] } = {}) {
+  const { XLSX } = require('./aiuto.js').librerie();
+  const { leggiExcel } = require('../app/lettura-excel.js');
+  const { cartellaDueTempi } = require('./fixture-excel.js');
+  const righe = [[1, 30, 'ALFA'], [2, 30, 'BETA/GAMMA']];
+  const statici = [['CLUB MAT L1', 'KAPPA', 'KAPPA'], ['CLUB MAT L2', '/', '/'], ['ASSET 2 ROW', 'FIRST HALF', 'SECOND HALF'], ['ZONE 3:', 'ALFA', 'ALFA'], ['ZONE 4:', 'BETA', 'BETA'],
+    ['ADNETGOAL', 'FIRST HALF', 'SECOND HALF'], ['ZONE 7:', 'OMEGA SHOP', 'OMEGA SHOP'], ...extra];
+  const excel = leggiExcel(cartellaDueTempi({ righe1: righe, righe2: righe, statici }), XLSX);
+  const led = ['ALFA_GL1-TL1', 'GAMMA/BETA_GL1-TL1'];
+  const pieno = (n) => ({ durata: 30000, mappe: { 0: art(n), 1: art(n), 2: art(`${seconda[0]}_2ROW`), 3: art(`${seconda[1]}_2ROW`), 4: art('KAPPA_L1'), 6: art('OMEGA_ADDNET') } });
+  const tempo = () => [{ durata: 30000, mappe: { 0: BLANK, 1: BLANK, 2: BLANK, 3: BLANK } }].concat(led.map(pieno));
+  const air = { evento: { nome: 'Alfa vs Beta', data: '2026-11-17', venue: 'Stadio Prova' },
+    zone: new Map(['Left Goal', 'Right Goal', '2nd Row 1', '2nd Row 2', 'Carpet L1', 'Carpet L2', 'Left Goal Adnet'].map((z, i) => [i, z])),
+    stream: [{ nome: 'Feed Alfa', regioni: new Set(), segmenti: [segmento('Pre Game', [{ durata: 30000, mappe: { 0: BLANK, 1: BLANK, 2: BLANK, 3: BLANK } }]), segmento('First Half', tempo()), segmento('Second Half', tempo())] }] };
+  return verifica(excel, air, REGOLE);
+}
+
+test('foglio unico con STATIC ASSET a più sezioni: seconda fila e adnet dalle righe ZONE n, non dalla colonna dei brand', () => {
+  const r = modelloZone();
+  assert.deepEqual([...new Set(r.esiti.map((e) => [e.tipo, e.zona, e.atteso, e.trovato].join('|')))], ['Variant|Left Goal Adnet|OMEGA SHOP|OMEGA_ADDNET']);
+  assert.ok(r.animazioni.some((v) => v.gruppo === 'Statics' && v.zone[0].zona === '2nd Row 2' && v.atteso === 'BETA'));
+});
+
+test('foglio unico: seconda fila diversa dalla riga ZONE n è Error, con la cella dello STATIC ASSET', () => {
+  const r = modelloZone({ seconda: ['ALFA', 'ALFA'] });
+  const sbagliati = r.esiti.filter((e) => e.zona === '2nd Row 2');
+  assert.deepEqual([...new Set(sbagliati.map((e) => [e.tipo, e.colonna, e.atteso, e.trovato].join('|')))], ['Error|STATIC C7 · ZONE 4 · FIRST HALF|BETA|ALFA_2ROW', 'Error|STATIC D7 · ZONE 4 · SECOND HALF|BETA|ALFA_2ROW']);
+});
+
+test('foglio unico: una riga ZONE n senza quella zona nel pacchetto è Error', () => {
+  const r = modelloZone({ extra: [['ZONE 12:', 'SIGMA', 'SIGMA']] });
+  assert.deepEqual(r.esiti.filter((e) => e.tipo === 'Error').map((e) => [e.segmento, e.colonna, e.atteso, e.trovato]), [['Excel', 'STATIC C10 · ZONE 12 · FIRST HALF', 'package zone 12', 'missing']]);
+});

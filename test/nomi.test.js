@@ -15,6 +15,25 @@ test('k e codici di modalità', () => {
   assert.equal(vuoto('ALFA'), 'ALFA');
 });
 
+test('chiaveBrand: codici di posizione uniti col trattino (GL1-TL1), seconda fila (2ROW) e adnet (ADDNET)', () => {
+  assert.equal(chiaveBrand('ALFA_GL1-TL1').chiave, 'ALFA');
+  assert.equal(chiaveBrand('BETA/ALFA_GL1-TL1').chiave, 'BETAALFA');
+  assert.equal(chiaveBrand('ALFA_2ROW').chiave, 'ALFA');
+  assert.equal(chiaveBrand('KAPPA_ADDNET').chiave, 'KAPPA');
+  assert.equal(chiaveBrand('KAPPA_ADNET').chiave, 'KAPPA');
+  assert.equal(chiaveBrand('ALFA_BETA-GAMMA').chiave, 'ALFABETAGAMMA');
+});
+
+test('stessi brand separati da "/" in ordine diverso: giusto; brand diversi no', () => {
+  assert.equal(confronta('BETA/ALFA', art('ALFA/BETA_GL1-TL1'), ctx), 'ok');
+  assert.equal(confronta('BETA / ALFA', art('ALFA/BETA_GL1-TL1'), ctx), 'ok');
+  assert.notEqual(confronta('BETA/ALFA', art('ALFA/GAMMA_GL1-TL1'), ctx), 'ok');
+});
+
+test('adnet col nome di una campagna nell’Excel (KAPPA SHOP ↔ KAPPA_ADDNET): Variant', () => {
+  assert.equal(confronta('KAPPA SHOP', art('KAPPA_ADDNET'), ctx), 'variante');
+});
+
 test('chiaveBrand toglie le posizioni in coda', () => {
   assert.equal(chiaveBrand('ALFA_TL2_B-C').chiave, 'ALFA');
   assert.equal(chiaveBrand('ALFA_SOLO_GL_1').chiave, 'ALFA');

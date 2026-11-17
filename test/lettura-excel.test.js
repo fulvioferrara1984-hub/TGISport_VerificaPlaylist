@@ -170,6 +170,21 @@ test('foglio unico con il foglio STATIC ASSETS: i tappeti CLUB MAT con il brand 
   ]);
 });
 
+test('STATIC ASSET con più sezioni: righe ZONE n col brand di ogni tempo; "/" vuol dire nessun brand', () => {
+  const x = leggiExcel(cartellaDueTempi({ righe1: [[1, 30, 'Alfa']], righe2: [[1, 30, 'Alfa']],
+    statici: [['CLUB MAT L1', 'Kappa', 'Kappa'], ['CLUB MAT L2', '/', '/'], ['ASSET 2 ROW', 'FIRST HALF', 'SECOND HALF'], ['ZONE 6:', 'Alfa', 'Beta'], ['ZONE 9 CENTER:', 'Gamma', 'Gamma']] }), XLSX);
+  assert.deepEqual([...x.statici].sort(([a], [b]) => a.localeCompare(b)), [
+    ['MATS_L1@MATCH1|UNICO', { valore: 'Kappa', cella: 'C3', etichetta: 'CLUB MAT L1 · FIRST HALF' }],
+    ['MATS_L1@MATCH2|UNICO', { valore: 'Kappa', cella: 'D3', etichetta: 'CLUB MAT L1 · SECOND HALF' }],
+    ['MATS_L2@MATCH1|UNICO', { valore: null, cella: 'C4', etichetta: 'CLUB MAT L2 · FIRST HALF' }],
+    ['MATS_L2@MATCH2|UNICO', { valore: null, cella: 'D4', etichetta: 'CLUB MAT L2 · SECOND HALF' }],
+    ['ZONA_6@MATCH1|UNICO', { valore: 'Alfa', cella: 'C6', etichetta: 'ZONE 6 · FIRST HALF' }],
+    ['ZONA_6@MATCH2|UNICO', { valore: 'Beta', cella: 'D6', etichetta: 'ZONE 6 · SECOND HALF' }],
+    ['ZONA_9@MATCH1|UNICO', { valore: 'Gamma', cella: 'C7', etichetta: 'ZONE 9 CENTER · FIRST HALF' }],
+    ['ZONA_9@MATCH2|UNICO', { valore: 'Gamma', cella: 'D7', etichetta: 'ZONE 9 CENTER · SECOND HALF' }],
+  ]);
+});
+
 // Foglio unico con la colonna dei brand "… FEED …" (non VIRTUAL FEED) e la colonna della seconda fila "2* ROW"
 const NAZIONALE = ['AWAY NATIONAL FEED PITCH VBR', '2* ROW'];
 

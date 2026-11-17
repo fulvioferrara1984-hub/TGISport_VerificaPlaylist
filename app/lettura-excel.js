@@ -205,12 +205,15 @@
       for (let c = 0; c < colonne; c++) if (TEMPI[k(valore(r, c))]) tempi.push([c, ...TEMPI[k(valore(r, c))]]);
       if (new Set(tempi.map((t) => t[1])).size < 2) continue;
       for (let s = r + 1; s < righe; s++) {
-        const etichetta = valore(s, 0) === null ? '' : String(valore(s, 0)).trim();
+        const etichetta = valore(s, 0) === null ? '' : String(valore(s, 0)).trim().replace(/\s*:\s*$/, '');
+        // CLUB MAT L1 → tappeto; ZONE 6 (anche "ZONE 9 CENTER") → la sesta zona del pacchetto (seconda fila, adnet…)
         const m = /^(?:CLUB)?MATS?([A-Z]*\d+)$/.exec(k(etichetta));
-        if (!m) continue;
+        const z = /^ZONE(\d+)/.exec(k(etichetta));
+        if (!m && !z) continue;
         tempi.forEach(([c, tempo, testa]) => {
-          const v = valore(s, c);
-          out.set(`MATS_${m[1]}@${tempo}|${REGIONE_UNICA}`, { valore: v === null ? null : String(v), cella: XLSX.utils.encode_col(c) + (s + 1), etichetta: `${etichetta} · ${testa}` });
+          const v = vuoto(valore(s, c)); // "/" o "-" = nessun brand
+          out.set(`${m ? `MATS_${m[1]}` : `ZONA_${Number(z[1])}`}@${tempo}|${REGIONE_UNICA}`,
+            { valore: v === null ? null : String(v), cella: XLSX.utils.encode_col(c) + (s + 1), etichetta: `${etichetta} · ${testa}` });
         });
       }
       break;

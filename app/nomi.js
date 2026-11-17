@@ -10,7 +10,7 @@
   const POS = new Set(['GC1', 'GC', '1', '2', 'GL1', 'GL2', 'GL', 'TL1', 'TL2', 'TL', 'J', 'D', 'JUMBO', 'CORNER', 'A', 'B', 'C', 'AB', 'BC',
     'LC', 'UC', 'SX', 'DX', 'GLSX', 'GLDX', 'GLSX2', 'GLDX2', 'TLA', 'SOLO', 'SOLO1FILA', 'GL2TL2', 'CC', 'ADD',
     'LSX', 'USX', 'UDX', 'LDX', 'TLB', 'TLBC', 'LCUC', 'TL2A', 'TL2BC', 'TL2AB', '1FILA', '2FILA', 'CX', 'CX2', 'TLCX', 'GLSX1', 'GLDX1',
-    'RSX', 'RDX', 'SEC', '10', '15', '30', 'LED', 'CENTREBOARD', 'CENTERBOARD', 'LEFT', 'RIGHT', 'MATS', 'L1', 'L2', 'L3', 'L4', 'R1', 'R2', 'R3', 'R4']);
+    'RSX', 'RDX', 'SEC', '10', '15', '30', 'LED', 'CENTREBOARD', 'CENTERBOARD', 'LEFT', 'RIGHT', 'MATS', 'L1', 'L2', 'L3', 'L4', 'R1', 'R2', 'R3', 'R4', '2ROW', 'ADDNET', 'ADNET']);
 
   // Maiuscole, con le lettere accentate e nordiche come quelle semplici (Ö → O, Ø → O, Æ → AE).
   const semplice = (testo) => String(testo).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/Ø/g, 'O').replace(/Æ/g, 'AE');
@@ -31,10 +31,25 @@
     return String(testo).trim().replace(/(\s*\((J|D)\)|_(J|D))\s*$/i, '');
   }
 
-  function chiaveBrand(nomeAd) {
+  // Un pezzo del nome è una posizione anche se unisce più codici col trattino (GL1-TL1, B-C).
+  const posizione = (parte) => POS.has(k(parte)) || (parte.includes('-') && parte.split('-').every((x) => POS.has(k(x))));
+
+  // Pezzi del nome di un artwork senza le posizioni in coda (ALFA_GL1_J → ['ALFA']).
+  function partiBrand(nomeAd) {
     const parti = String(nomeAd).toUpperCase().split('_');
-    while (parti.length > 1 && POS.has(k(parti[parti.length - 1]))) parti.pop();
+    while (parti.length > 1 && posizione(parti[parti.length - 1])) parti.pop();
+    return parti;
+  }
+
+  function chiaveBrand(nomeAd) {
+    const parti = partiBrand(nomeAd);
     return { chiave: k(parti.join('')), parole: parti.map(k).filter(Boolean) };
+  }
+
+  // Brand separati da "/" come insieme, senza l'ordine: "BETA / ALFA" e "ALFA/BETA" → 'ALFA|BETA'; null con un brand solo.
+  function insiemeBrand(testo) {
+    const pezzi = String(testo).split('/').map(k).filter(Boolean);
+    return pezzi.length > 1 ? pezzi.sort().join('|') : null;
   }
 
   // Damerau-Levenshtein, variante OSA: lo scambio di due lettere vicine conta 1.
@@ -123,6 +138,9 @@
     const aliasExcel = Object.keys(alias).filter((a) => allineato(ex, a));
     const { chiave, parole: paroleAir } = chiaveBrand(art.ad);
     if (e === chiave || aliasExcel.some((a) => alias[a].includes(chiave))) return 'ok';
+    // gli stessi brand in ordine diverso (BETA/ALFA nell'Excel, ALFA/BETA_GL1 nel pacchetto)
+    const insieme = insiemeBrand(senzaCodici(excel));
+    if (insieme && insieme === insiemeBrand(partiBrand(art.ad).join('_'))) return 'ok';
     if (coperte(ex, paroleAir) || coperte(parole(paroleAir), [e]) || (e.length >= 4 && coperte(paroleTesto(nomeFile(art.file)), [e]))) return 'variante';
     // nome advertiser e nome file senza il prefisso della squadra di casa (es. CASA_ALFA_LSX → ALFA)
     for (const altro of [art.advertiser, nomeFile(art.file)]) {
